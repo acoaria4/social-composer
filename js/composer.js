@@ -124,6 +124,7 @@
   };
 
   let textTools;
+  let viewport;
   let idSeq = 1;
   let customSeq = 1;
   let createdSeq = 1;
@@ -282,8 +283,8 @@
     state.viewScale =
       state.width > 0 ? rect.width / state.width : 1;
     state.canvasOffset = {
-      x: rect.left - stageRect.left,
-      y: rect.top - stageRect.top,
+      x: rect.left - stageRect.left - els.stage.clientLeft,
+      y: rect.top - stageRect.top - els.stage.clientTop,
     };
   }
 
@@ -293,19 +294,13 @@
       els.canvas.height = 0;
       els.canvas.style.width = "0";
       els.canvas.style.height = "0";
+      viewport?.refresh();
       return;
     }
-    els.canvas.width = state.width;
-    els.canvas.height = state.height;
+    if (els.canvas.width !== state.width) els.canvas.width = state.width;
+    if (els.canvas.height !== state.height) els.canvas.height = state.height;
 
-    const pad = 32;
-    const maxW = Math.max(80, els.stage.clientWidth - pad);
-    const maxH = Math.max(80, els.stage.clientHeight - pad);
-    const scale = Math.min(maxW / state.width, maxH / state.height, 1);
-    const displayW = Math.round(state.width * scale);
-    const displayH = Math.round(state.height * scale);
-    els.canvas.style.width = `${displayW}px`;
-    els.canvas.style.height = `${displayH}px`;
+    viewport?.refresh();
     updateViewMetrics();
   }
 
@@ -434,6 +429,7 @@
     state.overlays = [];
     state.selectedId = null;
     recomputeCanvasSize();
+    viewport?.reset();
     fitCanvasElement();
     draw();
     return true;
@@ -966,6 +962,7 @@
       await textTools.loadFonts();
 
       recomputeCanvasSize();
+      viewport?.reset();
       fitCanvasElement();
       saveCustomAssets();
       renderCustomPane();
@@ -1826,6 +1823,11 @@
   }
 
   new ResizeObserver(() => { fitCanvasElement(); draw(); }).observe(els.stage);
+
+  viewport = window.ComposerViewport({
+    stage: els.stage, canvas: els.canvas, dimensions: () => ({ width: state.width, height: state.height }),
+    changed: () => { updateViewMetrics(); syncSelectionBox(); }, cancelInteraction: endInteraction,
+  });
 
   textTools = window.ComposerText.init(state, { changed: draw, nextId, remove: deleteSelected });
   textTools.loadFonts();

@@ -1,0 +1,85 @@
+const {chromium}=require('playwright');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');const path=require('node:path');
+(async()=>{
+ const browser=await chromium.launch({channel:'chrome',headless:true});
+ try {
+ const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(process.env.COMPOSER_URL||'http://127.0.0.1:8089/');
+ assert.equal(await page.locator('#zoom-in').isDisabled(),true);
+ await page.locator('#btn-empty-blank').click();await page.waitForFunction(()=>!document.querySelector('#zoom-in').disabled);
+ const rect=()=>page.locator('#stage-canvas').boundingBox();
+ const bitmap=()=>page.locator('#stage-canvas').evaluate(c=>c.toDataURL());
+ const download=async()=>{const wait=page.waitForEvent('download');await page.locator('#btn-download').click();const stream=await(await wait).createReadStream();let parts=[];for await(const part of stream)parts.push(part);return Buffer.concat(parts);};
+ await page.locator('#tab-assets').click();await page.locator('#panel-assets [data-brand-panel="expenses"] > summary').click();
+ await page.locator('[data-asset-id="expenses-icon"]').click();
+ const before=await download(),panel=await page.locator('.editor-pane').boundingBox(),initial=await rect();
+ await page.locator('#zoom-in').click();assert.ok((await rect()).width>initial.width);
+ assert.deepEqual(await page.locator('.editor-pane').boundingBox(),panel);
+ assert.deepEqual(await download(),before);
+ const wheel=(deltaY,ctrlKey,x,y,deltaX=0)=>page.locator('#stage-drop').evaluate((e,args)=>{const r=e.getBoundingClientRect();const event=new WheelEvent('wheel',{deltaY:args.deltaY,deltaX:args.deltaX,ctrlKey:args.ctrlKey,clientX:args.x??r.left+r.width/2,clientY:args.y??r.top+r.height/2,bubbles:true,cancelable:true});e.dispatchEvent(event);return event.defaultPrevented;},{deltaY,ctrlKey,x,y,deltaX});
+ await wheel(-100,true);const stage=await page.locator('#stage-drop').boundingBox();
+ const anchor={x:stage.x+stage.width*.55,y:stage.y+stage.height*.55},old=await rect();
+ await wheel(-10,true,anchor.x,anchor.y);const next=await rect();
+ assert.ok(Math.abs((anchor.x-old.x)/old.width-(anchor.x-next.x)/next.width)<.002);
+ assert.ok(Math.abs((anchor.y-old.y)/old.height-(anchor.y-next.y)/next.height)<.002);
+ const prev=await rect();await wheel(60,false,undefined,undefined,40);const panned=await rect();assert.ok(panned.x<prev.x&&panned.y<prev.y);
+ assert.deepEqual(await download(),before);
+ // Move the asset in image coordinates at a moderate zoom, then resize it.
+ await page.locator('#zoom-fit').click();await page.locator('#zoom-in').click();
+ const selection=await page.locator('#selection-box').boundingBox();
+ await page.mouse.move(selection.x+selection.width/2,selection.y+selection.height/2);await page.mouse.down();await page.mouse.move(selection.x+selection.width/2+50,selection.y+selection.height/2+25);await page.mouse.up();
+ assert.ok((await page.locator('#selection-box').boundingBox()).x>selection.x);
+ const handle=await page.locator('.handle.se').boundingBox();await page.mouse.move(handle.x+8,handle.y+8);await page.mouse.down();await page.mouse.move(handle.x+45,handle.y+45);await page.mouse.up();
+ assert.ok((await page.locator('#selection-box').boundingBox()).width>selection.width);
+ // Dropping an asset uses artwork coordinates even when the preview is zoomed.
+ const dropPoint={x:stage.x+stage.width*.55,y:stage.y+stage.height*.55};
+ await page.locator('#stage-drop').evaluate((e,p)=>{const data=new DataTransfer();data.setData('application/x-brand-asset','expenses-mark');e.dispatchEvent(new DragEvent('drop',{dataTransfer:data,clientX:p.x,clientY:p.y,bubbles:true,cancelable:true}));},dropPoint);
+ const dropped=await page.locator('#selection-box').boundingBox();
+ assert.ok(Math.abs(dropped.x+dropped.width/2-dropPoint.x)<40);
+ assert.ok(Math.abs(dropped.y+dropped.height/2-dropPoint.y)<40);
+ const edited=await download();
+ await wheel(-100,true);await page.locator('#zoom-hand').click();
+ const center={x:stage.x+stage.width/2,y:stage.y+stage.height/2};
+ const panStart=await rect();await page.mouse.move(center.x,center.y);await page.mouse.down();await page.mouse.move(center.x+40,center.y+40);await page.mouse.up();assert.notEqual((await rect()).x,panStart.x);
+ assert.deepEqual(await download(),edited);
+ await page.locator('#zoom-hand').click();await page.locator('#stage-drop').focus();await page.keyboard.down('Space');
+ assert.equal(await page.locator('#stage-drop').evaluate(e=>e.classList.contains('is-hand')),true);
+ await page.keyboard.up('Space');assert.equal(await page.locator('#stage-drop').evaluate(e=>e.classList.contains('is-hand')),false);
+ await page.locator('#tab-text').click();await page.locator('#text-add').click();await page.locator('#text-content').fill('Header');await page.keyboard.press('Space');assert.equal(await page.locator('#text-content').inputValue(),'Header ');
+ await page.locator('#zoom-fit').click();await page.locator('#zoom-in').click();
+ const textBox=await page.locator('#selection-box').boundingBox(),textSize=await page.locator('#text-body-size').inputValue();
+ const textHandle=await page.locator('.handle.se').boundingBox();
+ await page.mouse.move(textHandle.x+8,textHandle.y+8);await page.mouse.down();await page.mouse.move(textHandle.x+40,textHandle.y+20);await page.mouse.up();
+ assert.ok((await page.locator('#selection-box').boundingBox()).width>textBox.width);
+ assert.equal(await page.locator('#text-body-size').inputValue(),textSize);
+ await page.locator('#text-delete').click();
+ // Zoom remains bounded; Fit resets the view and manual resize preserves its center.
+ await wheel(-10000,true);assert.equal(await page.locator('#zoom-level').innerText(),'400%');
+ await wheel(10000,true);assert.equal(await page.locator('#zoom-level').innerText(),'10%');
+ await page.locator('#zoom-fit').click();assert.equal(await page.locator('#zoom-fit').getAttribute('aria-pressed'),'true');
+ await page.locator('#zoom-in').click();await page.locator('#zoom-in').click();
+ const prior=await rect(),priorStage=await page.locator('#stage-drop').boundingBox();
+ await page.setViewportSize({width:1500,height:1000});
+ await page.waitForFunction(()=>document.querySelector('#stage-drop').clientWidth>1000);
+ const after=await rect(),afterStage=await page.locator('#stage-drop').boundingBox();
+ assert.ok(Math.abs((priorStage.x+priorStage.width/2-prior.x)/prior.width-(afterStage.x+afterStage.width/2-after.x)/after.width)<.005);
+ // Browser zoom is not intercepted outside the preview.
+ assert.equal(await page.locator('.toolbar').evaluate(e=>{const event=new WheelEvent('wheel',{ctrlKey:true,deltaY:-20,bubbles:true,cancelable:true});e.dispatchEvent(event);return event.defaultPrevented;}),false);
+ await page.locator('#btn-save').click();await page.locator('#assets-created > .asset-chip').first().click();await page.waitForFunction(()=>document.querySelector('#zoom-fit').getAttribute('aria-pressed')==='true');
+ const cdp=await page.context().newCDPSession(page);
+ await page.setViewportSize({width:390,height:844});await page.locator('#btn-close-saved').click();await page.locator('#btn-view-preview').click();
+ await page.locator('#stage-drop').scrollIntoViewIfNeeded();
+ const touchStage=await page.locator('#stage-drop').boundingBox();const cy=touchStage.y+touchStage.height/2,cx=touchStage.x+touchStage.width/2;
+ const fitWidth=(await rect()).width;
+ await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:cx-30,y:cy,id:1},{x:cx+30,y:cy,id:2}]});
+ await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:cx-65,y:cy,id:1},{x:cx+65,y:cy,id:2}]});
+ await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+ assert.ok((await rect()).width>fitWidth*1.5);
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ assert.deepEqual(errors,[]);
+ const out=path.resolve(__dirname,'../exports/viewport');fs.mkdirSync(out,{recursive:true});await page.screenshot({path:path.join(out,'mobile.png')});
+ await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:path.join(out,'desktop.png')});
+ console.log('PASS: canvas-only zoom, pointer anchor, bounds, wheel/Hand/Space/touch pan and zoom, editing, unchanged PNGs, resize center, restore Fit, responsive layout, and browser zoom scope.');
+ }finally{await browser.close();}
+})();

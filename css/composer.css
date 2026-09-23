@@ -948,3 +948,14 @@ body::before { background: #101214; }
 .text-style input[type="color"] { padding: 5px; width: 100%; }
 #text-selection { overflow: hidden; text-overflow: ellipsis; }
 .editor-tabs button { padding-inline: 6px; }
+
+/* Zoom only changes the preview viewport, never the editor or export bitmap. */
+#stage-canvas { transform: none; max-width: none; max-height: none; }
+.stage-drop { touch-action: none; overscroll-behavior: contain; }
+.stage-drop.is-hand, .stage-drop.is-hand #stage-canvas, .stage-drop.is-hand .handle { cursor: grab; }
+.stage-drop.is-panning, .stage-drop.is-panning #stage-canvas, .stage-drop.is-panning .handle { cursor: grabbing; }
+.viewport-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding-bottom: 12px; }
+.viewport-toolbar .btn { min-width: 44px; }
+#zoom-level { min-width: 54px; text-align: center; font-variant-numeric: tabular-nums; }
+#zoom-hint { color: var(--muted); font-size: 12px; margin-left: 6px; flex: 1 1 230px; }
+@media (max-width: 860px) { #zoom-hint { flex-basis: 100%; margin-left: 0; } }

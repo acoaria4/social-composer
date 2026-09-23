@@ -6,7 +6,7 @@
     <title>Social Composer — gLitCh Labs</title>
     <link rel="icon" href="brands/current/glitchlabs-icon.png" type="image/png" />
     <link rel="stylesheet" href="css/fonts.css" />
-    <link rel="stylesheet" href="css/composer.css?v=text-boxes-1" />
+    <link rel="stylesheet" href="css/composer.css?v=preview-zoom-1" />
   </head>
   <body>
     <a class="skip-link" href="#stage-drop">Skip to canvas</a>
@@ -232,6 +232,14 @@
           </button>
 </div></details>
           </div>
+          <div class="viewport-toolbar" role="group" aria-label="Preview zoom and pan">
+            <button id="zoom-out" class="btn" type="button" aria-label="Zoom out" disabled>−</button>
+            <output id="zoom-level" aria-live="polite" aria-label="Preview zoom">—</output>
+            <button id="zoom-in" class="btn" type="button" aria-label="Zoom in" disabled>+</button>
+            <button id="zoom-fit" class="btn" type="button" aria-pressed="true" disabled>Fit</button>
+            <button id="zoom-hand" class="btn" type="button" aria-pressed="false" aria-describedby="zoom-hint" disabled>Hand</button>
+            <span id="zoom-hint">Pinch or Ctrl + scroll to zoom · Scroll to pan · Hold Space to drag</span>
+          </div>
 <div
             id="stage-drop"
             class="stage-drop"
@@ -266,11 +274,12 @@
         </aside>
       </div>
     </div>
-    <script src="js/text-boxes.js?v=text-boxes-1"></script>
-    <script src="js/composer.js?v=text-boxes-1"></script>
-    <script src="js/horoscope-template.js?v=text-boxes-1"></script>
-    <script src="js/lumen-template.js?v=text-boxes-1"></script>
-    <script src="js/lumen.js?v=text-boxes-1"></script>
-    <script src="js/horoscope.js?v=text-boxes-1"></script>
+    <script src="js/text-boxes.js?v=preview-zoom-1"></script>
+    <script src="js/viewport.js?v=preview-zoom-1"></script>
+    <script src="js/composer.js?v=preview-zoom-1"></script>
+    <script src="js/horoscope-template.js?v=preview-zoom-1"></script>
+    <script src="js/lumen-template.js?v=preview-zoom-1"></script>
+    <script src="js/lumen.js?v=preview-zoom-1"></script>
+    <script src="js/horoscope.js?v=preview-zoom-1"></script>
   </body>
 </html>

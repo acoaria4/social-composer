@@ -18,7 +18,11 @@ Select a box on the canvas or from the text-box list. Drag it to move, drag a co
 
 Run `node scripts/test-text-boxes.cjs` with the same Playwright setup to check collapsed sections, paste handling, shared styles, wrapping, overflow, editable save/restore, PNG export, and responsive controls. Outputs go to `exports/text-boxes/`.
 
-Canvas size and grid controls sit above the preview. **More actions** contains **Remove all assets** and **Clear canvas**. On smaller screens, **View preview** jumps from the controls to the canvas.
+Canvas size and grid controls sit above the preview. **More actions** contains **Remove assets and text** and **Clear canvas**. On smaller screens, **View preview** jumps from the controls to the canvas.
+
+The preview has independent **− / +**, percentage, **Fit**, and **Hand** controls. Pinch your trackpad or use **Ctrl + scroll** over the preview to zoom around the pointer; ordinary scrolling pans. Use **Hand** to drag the view, or hold **Space** while the preview is focused or hovered (typing in fields is unaffected). Two-finger touch gestures zoom and pan on mobile. Manual zoom ranges from 10–400%; 100% maps one artwork pixel to one CSS pixel. Fit shows the full composition and recalculates when the preview changes size. New and restored compositions start in Fit mode.
+
+Zoom affects only the preview, with no changes to artwork coordinates, saved designs, or exported PNGs. Browser zoom outside the preview works normally. Run `node scripts/test-viewport.cjs` with the Playwright setup below to verify gestures, editing coordinates, unchanged exports, and responsive behavior.
 
 Use **Save design** to keep an editable composition in this browser and **Saved designs** to restore it. These saves are local to the browser and site origin; **Download PNG** creates a separate image file.
 
