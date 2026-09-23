@@ -3,6 +3,7 @@ const {chromium}=require('playwright');const assert=require('node:assert/strict'
  const page=await browser.newPage({viewport:{width:1280,height:900}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(process.env.COMPOSER_URL||'http://127.0.0.1:8089/');
  await page.locator('[data-brand="lumen"]').click();
+ await page.locator('#lumen-fact-heading').click();
  const text=page.locator('#lumen-text'),source=page.locator('#lumen-source'),size=page.locator('#lumen-size'),create=page.locator('#lumen-create');
  const canvas=()=>page.locator('#stage-canvas').evaluate(c=>c.toDataURL());
  const initial=await canvas();await create.click();assert.equal(await text.evaluate(e=>e===document.activeElement),true);assert.equal(await canvas(),initial);

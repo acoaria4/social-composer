@@ -8,6 +8,16 @@ Run `python3 -m http.server 8089` and open `http://localhost:8089/`. No build st
 
 Choose a brand, then use **Create** for a blank canvas, background upload, or the AURA and Lumen templates. **Assets** contains brand artwork, custom uploads, and Expenses tint controls. Switching tabs or brands keeps the current session's drafts.
 
+Tool sections start collapsed. Each brand's artwork lives under **Assets → Icons**; expand only the sections you need.
+
+### Text over a background
+
+After uploading a background or creating a canvas, open **Text → Add text box**. Type or paste into **Box text**: its first line is the header and the remaining lines are the body. **Headers · first line** and **Body text** control font, size, color, and weight across all boxes independently. The first formatted paste with a supported inline font supplies the shared fonts; plain-text or unsupported-font pastes keep the selected fonts. The dropdowns list supported local and standard fonts. Pasted markup is never added to the page.
+
+Select a box on the canvas or from the text-box list. Drag it to move, drag a corner to change its width, or expand **Position and width** for numeric controls. Text wraps without shrinking, and box height grows with its content. PNG download is disabled when a box extends beyond the canvas; adjust its position, width, or shared text size to fit. Saved designs retain editable text and shared styles, including after reloading. Existing saved image-only designs remain compatible.
+
+Run `node scripts/test-text-boxes.cjs` with the same Playwright setup to check collapsed sections, paste handling, shared styles, wrapping, overflow, editable save/restore, PNG export, and responsive controls. Outputs go to `exports/text-boxes/`.
+
 Canvas size and grid controls sit above the preview. **More actions** contains **Remove all assets** and **Clear canvas**. On smaller screens, **View preview** jumps from the controls to the canvas.
 
 Use **Save design** to keep an editable composition in this browser and **Saved designs** to restore it. These saves are local to the browser and site origin; **Download PNG** creates a separate image file.

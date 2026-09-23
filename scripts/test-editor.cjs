@@ -16,6 +16,7 @@ const path = require('node:path');
     assert.equal(await visible('#panel-assets'), false);
     await page.locator('#tab-create').focus();
     await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
     assert.equal(await visible('#panel-assets'), true);
     assert.equal(await page.locator('#tab-assets').evaluate(e => e === document.activeElement), true);
     await page.keyboard.press('Home');
@@ -23,6 +24,7 @@ const path = require('node:path');
 
     // A draft survives both navigation paths without replacing its form elements.
     await page.locator('[data-brand="lumen"]').click();
+    await page.locator('#lumen-fact-heading').click();
     await page.locator('#lumen-text').fill('A draft worth keeping.');
     await page.locator('#tab-assets').click();
     await page.locator('[data-brand="aura"]').click();
@@ -34,6 +36,7 @@ const path = require('node:path');
     await page.waitForFunction(() => !document.querySelector('#btn-save').disabled);
     await page.locator('[data-brand="expenses"]').click();
     await page.locator('#tab-assets').click();
+    await page.locator('#panel-assets [data-brand-panel="expenses"] > summary').click();
     await page.locator('[data-asset-id="expenses-icon"]').click();
     assert.equal(await visible('#selection-box'), true);
     // Move and scale through the same canvas pointer interactions used by the editor.
@@ -50,6 +53,7 @@ const path = require('node:path');
     await page.locator('#chip-custom-color').click();
     await page.locator('#tint-hex').fill('#ffcc88');
     await page.locator('#tint-insert').click();
+    await page.locator('#panel-assets > details:not([data-brand-panel]) > summary').click();
     await page.locator('#custom-asset-input').setInputFiles(path.resolve(__dirname, '../brands/current/lumen-mark.png'));
     await page.waitForFunction(() => document.querySelectorAll('#assets-custom .asset-chip').length === 1);
     await page.locator('#assets-custom .asset-chip').click();
@@ -84,6 +88,7 @@ const path = require('node:path');
     // A hidden typography error is revealed instead of leaving focus in a closed section.
     await page.locator('[data-brand="aura"]').click();
     await page.locator('#tab-create').click();
+    await page.locator('#aura-heading').click();
     assert.equal(await page.locator('#horoscope-typography').getAttribute('open'), null);
     await page.locator('#horoscope-font-size').evaluate(e => { e.value = '99'; });
     await page.locator('#horoscope-create').click();

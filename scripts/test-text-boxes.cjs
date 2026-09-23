@@ -1,0 +1,91 @@
+const { chromium } = require('playwright');
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const fs = require('node:fs');
+(async () => {
+  const browser = await chromium.launch({channel:'chrome',headless:true});
+  try {
+    const page = await browser.newPage({viewport:{width:1440,height:1000}});
+    const errors=[];page.on('pageerror',e=>errors.push(e.message));
+    await page.goto(process.env.COMPOSER_URL||'http://127.0.0.1:8089/');
+    assert.equal(await page.locator('.editor-pane details[open]').count(),0);
+    for(const brand of ['expenses','aura','lumen','glitch']) {
+      await page.locator(`[data-brand="${brand}"]`).click();
+      await page.locator('#tab-assets').click();
+      const group=page.locator(`#panel-assets [data-brand-panel="${brand}"]`);
+      assert.equal(await group.locator('summary').innerText(),'Icons');
+      assert.equal(await group.getAttribute('open'),null);
+    }
+    await page.locator('#tab-text').click();
+    assert.equal(await page.locator('#text-add').isDisabled(),true);
+    await page.locator('#bg-input').setInputFiles(path.resolve(__dirname,'../brands/current/lumen-icon.png'));
+    await page.waitForFunction(()=>!document.querySelector('#text-add').disabled);
+    await page.locator('#preset-select').selectOption('1080x1350');
+    await page.locator('#text-add').click();
+    const paste = html => page.locator('#text-content').evaluate((e,html)=>{
+      const data=new DataTransfer();data.setData('text/html',html);data.setData('text/plain','Header\nBody text');
+      e.dispatchEvent(new ClipboardEvent('paste',{clipboardData:data,bubbles:true}));
+    },html);
+    await paste('Plain clipboard fragment');
+    assert.equal(await page.locator('#text-body-font').inputValue(),'DM Sans');
+    await paste('<p style="font-family: Georgia">Header</p><p style="font-family: Arial">Body text</p><img src="https://example.invalid/image.png" onerror="alert(1)">');
+    await page.waitForFunction(()=>!document.querySelector('#text-add').disabled);
+    assert.equal(await page.locator('#text-header-font').inputValue(),'Georgia');
+    assert.equal(await page.locator('#text-body-font').inputValue(),'Arial');
+    await page.locator('#text-content').fill('A clear heading\nBody text wraps naturally across several lines without changing its font size.');
+    await page.locator('#text-add').click();
+    await page.locator('#text-content').fill('Second heading\nதமிழ் வாசகங்களும் சரியாகத் தோன்ற வேண்டும்.');
+    await paste('<p style="font-family: Verdana">Later paste</p>');
+    assert.equal(await page.locator('#text-header-font').inputValue(),'Georgia');
+    await page.locator('#text-position > summary').click();
+    await page.locator('#text-y').fill('650');
+    await page.locator('.text-style > summary').first().click();
+    await page.locator('#text-header-size').fill('42');
+    await page.locator('#text-header-color').fill('#ffeebb');
+    await page.locator('#text-header-weight').selectOption('600');
+    await page.locator('.text-style > summary').last().click();
+    await page.locator('#text-body-size').fill('28');
+    await page.locator('#text-body-color').fill('#aaccff');
+    await page.locator('#text-body-weight').selectOption('700');
+    await page.waitForFunction(()=>!document.querySelector('#btn-save').disabled);
+    await page.locator('#btn-save').click();
+    const saved=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('glitch-social-composer-created-pics')).at(-1).composition);
+    let composition=await saved();
+    assert.equal(composition.overlays.filter(o=>o.type==='text').length,2);
+    assert.equal(composition.textStyles.header.size,42);assert.equal(composition.textStyles.body.size,28);
+    assert.equal(composition.textStyles.body.font,'Arial');assert.equal(composition.textStyles.body.weight,700);
+    const originalText=composition.overlays.map(o=>o.text);
+    await page.locator('#btn-close-saved').click();
+    await page.locator('#text-width').fill('180');
+    await page.locator('#text-y').fill('1200');
+    assert.match(await page.locator('#text-status').innerText(),/outside the canvas/);
+    assert.equal(await page.locator('#btn-download').isDisabled(),true);
+    await page.locator('#text-width').fill('700');
+    await page.locator('#text-y').fill('500');
+    await page.locator('#btn-save').click();
+    await page.locator('#btn-close-saved').click();
+    await page.reload();
+    await page.locator('#btn-created-toggle').click();
+    await page.locator('#assets-created > .asset-chip').first().click();
+    await page.waitForFunction(()=>!document.querySelector('#btn-download').disabled);
+    await page.locator('#btn-close-saved').click();
+    await page.locator('#tab-text').click();
+    await page.locator('#text-selection').selectOption({index:1});
+    assert.equal(await page.locator('#text-content').inputValue(),originalText[0]);
+    await page.locator('#text-selection').selectOption({index:2});
+    assert.equal(await page.locator('#text-content').inputValue(),originalText[1]);
+    assert.equal(await page.locator('#text-body-color').inputValue(),'#aaccff');
+    const download=page.waitForEvent('download');await page.locator('#btn-download').click();
+    const out=path.resolve(__dirname,'../exports/text-boxes');fs.mkdirSync(out,{recursive:true});
+    await (await download).saveAs(path.join(out,'text-boxes.png'));
+    for(const width of [390,860,1440]) {
+      await page.setViewportSize({width,height:1000});
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+      await page.screenshot({path:path.join(out,`editor-${width}.png`),fullPage:true});
+    }
+    await page.locator('#text-delete').click();
+    assert.equal(await page.locator('#text-selection option').count(),2);
+    assert.deepEqual(errors,[]);
+    console.log('PASS: collapsed headings, shared text/header styles, safe paste font import, wrapping and overflow, editable save/restore, PNG export, delete, and responsive text controls.');
+  } finally {await browser.close();}
+})();

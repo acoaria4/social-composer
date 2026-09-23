@@ -107,6 +107,8 @@
     canvasOffset: { x: 0, y: 0 },
     /** @type {Array<{id:string, assetId:string, x:number, y:number, width:number, height:number}>} */
     overlays: [],
+    textStyles: window.ComposerText.defaults(),
+    textReady: true,
     selectedId: null,
     presetKey: "native",
     interaction: null,
@@ -121,6 +123,7 @@
     tintPanelOpen: false,
   };
 
+  let textTools;
   let idSeq = 1;
   let customSeq = 1;
   let createdSeq = 1;
@@ -326,6 +329,7 @@
     drawGrid();
 
     for (const ov of state.overlays) {
+      if (ov.type === "text") { window.ComposerText.draw(ctx, ov, state.textStyles); continue; }
       const img = assetImages.get(ov.assetId);
       if (!img) continue;
       ctx.drawImage(img, ov.x, ov.y, ov.width, ov.height);
@@ -361,8 +365,10 @@
   function updateChrome() {
     const hasBg = Boolean(state.bgImage);
     els.empty.hidden = hasBg;
-    els.download.disabled = !hasBg;
-    if (els.save) els.save.disabled = !hasBg;
+    textTools?.sync();
+    const textOutside = state.overlays.some(o => o.type === "text" && (o.x < 0 || o.y < 0 || o.x + o.width > state.width || o.y + o.height > state.height));
+    els.download.disabled = !hasBg || !state.textReady || textOutside;
+    if (els.save) els.save.disabled = !hasBg || !state.textReady;
     els.clear.disabled = !hasBg || state.overlays.length === 0;
     els.reset.disabled = !hasBg;
 
@@ -377,8 +383,8 @@
     const marks =
       state.overlays.length === 0
         ? "no marks"
-        : `${state.overlays.length} mark${state.overlays.length === 1 ? "" : "s"}`;
-    els.meta.textContent = `${mode} · export ${state.width}×${state.height} · ${marks}`;
+        : `${state.overlays.filter(o => o.type !== "text").length} marks · ${state.overlays.filter(o => o.type === "text").length} text boxes`;
+    els.meta.textContent = textOutside ? "Text extends outside the canvas. Adjust the boxes in Text to enable PNG export." : `${mode} · export ${state.width}×${state.height} · ${marks}`;
   }
 
   function resetSession() {
@@ -514,6 +520,7 @@
   }
 
   function startMove(ov, cx, cy) {
+    if (ov.type === "text") selectEditorTab(document.getElementById("tab-text"));
     bringToFront(ov.id);
     state.selectedId = ov.id;
     state.interaction = {
@@ -561,6 +568,13 @@
       let y = it.origY;
       let w = it.origW;
       let h = it.origH;
+      if (ov.type === "text") {
+        const left = it.handle.endsWith("w");
+        ov.width = Math.max(48, Math.round(it.origW + (left ? -dx : dx)));
+        if (left) ov.x = Math.round(it.origX + it.origW - ov.width);
+        draw();
+        return;
+      }
       const aspect = it.aspect;
 
       switch (it.handle) {
@@ -627,6 +641,7 @@
     );
     c.drawImage(state.bgImage, cover.x, cover.y, cover.w, cover.h);
     for (const ov of state.overlays) {
+      if (ov.type === "text") { window.ComposerText.draw(c, ov, state.textStyles); continue; }
       const img = assetImages.get(ov.assetId);
       if (!img) continue;
       c.drawImage(img, ov.x, ov.y, ov.width, ov.height);
@@ -711,11 +726,12 @@
     n += c.bgDataUrl?.length || 0;
     n += c.presetKey?.length || 0;
     n += c.tintHex?.length || 0;
+    n += JSON.stringify(c.textStyles || {}).length;
     for (const url of Object.values(c.assetDataUrls || {})) {
       n += url?.length || 0;
     }
     for (const ov of c.overlays || []) {
-      n += 64;
+      n += 64 + (ov.text?.length || 0);
     }
     return n;
   }
@@ -780,17 +796,20 @@
               typeof a.composition.tintHex === "string"
                 ? a.composition.tintHex
                 : DEFAULT_TINT_HEX,
+            textStyles: window.ComposerText.normalize(a.composition.textStyles),
             overlays: a.composition.overlays
               .filter(
                 (o) =>
                   o &&
-                  typeof o.assetId === "string" &&
+                  (typeof o.assetId === "string" || (o.type === "text" && typeof o.text === "string")) &&
                   Number.isFinite(o.x) &&
                   Number.isFinite(o.y) &&
                   Number.isFinite(o.width) &&
                   Number.isFinite(o.height)
               )
               .map((o) => ({
+                type: o.type === "text" ? "text" : undefined,
+                text: o.type === "text" ? o.text.slice(0, 20000) : undefined,
                 assetId: o.assetId,
                 x: Number(o.x),
                 y: Number(o.y),
@@ -833,7 +852,10 @@
         templateBrand: state.templateBrand,
         presetKey: state.presetKey || "native",
         tintHex: state.tintHex || DEFAULT_TINT_HEX,
+        textStyles: window.ComposerText.normalize(state.textStyles),
         overlays: state.overlays.map((o) => ({
+          type: o.type,
+          text: o.text,
           assetId: o.assetId,
           x: o.x,
           y: o.y,
@@ -929,7 +951,10 @@
           : "native";
       if (els.preset) els.preset.value = state.presetKey;
 
+      state.textStyles = window.ComposerText.normalize(comp.textStyles);
       state.overlays = (comp.overlays || []).map((o) => ({
+        type: o.type,
+        text: o.text,
         id: nextId(),
         assetId: o.assetId,
         x: o.x,
@@ -938,6 +963,7 @@
         height: o.height,
       }));
       state.selectedId = null;
+      await textTools.loadFonts();
 
       recomputeCanvasSize();
       fitCanvasElement();
@@ -1518,6 +1544,14 @@
     }
   };
 
+  function revealTool(element) {
+    for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+      if (parent.tagName === "DETAILS") parent.open = true;
+    }
+  }
+  document.querySelectorAll(".editor-pane input, .editor-pane textarea").forEach(input => {
+    input.addEventListener("invalid", () => revealTool(input));
+  });
   // —— Events ——
   document.getElementById("horoscope-font-size").addEventListener("invalid", () => {
     document.getElementById("horoscope-typography").open = true;
@@ -1575,7 +1609,7 @@
       });
       document.querySelectorAll("[data-brand-panel]").forEach(panel => {
         panel.hidden = panel.dataset.brandPanel !== button.dataset.brand;
-        if (!panel.hidden) panel.open = true;
+
       });
     });
   });
@@ -1622,7 +1656,7 @@
         ov.x = Math.round(ov.x * sx);
         ov.y = Math.round(ov.y * sy);
         ov.width = Math.round(ov.width * s);
-        ov.height = Math.round(ov.height * s);
+        if (ov.type !== "text") ov.height = Math.round(ov.height * s);
       }
     }
     fitCanvasElement();
@@ -1792,6 +1826,9 @@
   }
 
   new ResizeObserver(() => { fitCanvasElement(); draw(); }).observe(els.stage);
+
+  textTools = window.ComposerText.init(state, { changed: draw, nextId, remove: deleteSelected });
+  textTools.loadFonts();
 
   // —— Boot ——
   state.showGrid = loadShowGrid();

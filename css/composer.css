@@ -934,3 +934,17 @@ body::before { background: #101214; }
   .asset-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .canvas-toolbar { padding-top: 8px; }
 }
+
+/* Collapsible tool groups and shared text styling. */
+.tool-section { margin: 0 0 12px; padding: 14px 0; border: 0; border-bottom: 1px solid var(--line); }
+.tool-section > summary { cursor: pointer; font: 600 16px/1.4 var(--font-display); min-height: 32px; padding: 4px 0; }
+.tool-section[open] > summary { margin-bottom: 14px; }
+.tool-section > summary.brand-heading { display: list-item; font-size: 18px; }
+.tool-section > summary.brand-heading::before { display: none; }
+#panel-text > .btn { width: 100%; }
+.text-control-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.text-control-grid .horoscope-field { margin: 8px 0; }
+#text-content { min-height: 170px; font: 400 15px/1.6 var(--font-sans); }
+.text-style input[type="color"] { padding: 5px; width: 100%; }
+#text-selection { overflow: hidden; text-overflow: ellipsis; }
+.editor-tabs button { padding-inline: 6px; }

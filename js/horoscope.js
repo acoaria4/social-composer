@@ -154,6 +154,7 @@
       const missing = fields.find(({input}) => !input.value.trim());
       if (missing) {
         missing.input.setAttribute('aria-invalid', 'true');
+        document.getElementById("horoscope-manual").open = true;
         missing.input.focus();
         status.textContent = `Add the ${missing.name.textContent} reading. The canvas is unchanged.`;
         return;
