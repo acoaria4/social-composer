@@ -4,6 +4,7 @@ const {chromium}=require('playwright');const assert=require('node:assert/strict'
  const page=await browser.newPage({viewport:{width:1280,height:900}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('https://aura-glitchlabs.fly.dev/**',route=>{apiCalls++;const params=new URL(route.request().url()).searchParams;const date=params.get('date'),language=params.get('lang');return route.fulfill({json:{date,language,timezone:'Asia/Kolkata',disclaimer:'For reflection only. Use your own judgement.',readings:['aries','taurus','gemini','cancer','leo','virgo','libra','scorpio','sagittarius','capricorn','aquarius','pisces'].map(sign=>({sign,summary:language==='ta'?'அடுத்த முடிவுக்கு முன் புதிய கோணத்தில் சிந்தியுங்கள்.':'Take one thoughtful step. Give yourself room to grow.'}))}})});
  await page.goto(process.env.COMPOSER_URL||'http://127.0.0.1:8089/');await page.locator('[data-brand="aura"]').click();
+ await page.locator('#horoscope-typography > summary').click();
  const longSample='நண்பர்கள் அல்லது தொழில் வட்டாரத்திலிருந்து உதவி கிடைக்கலாம். நீண்டகால திட்டம் ஒன்றை நடைமுறைப்படுத்தும் எண்ணம் வலுப்படும்.';
  const sample='நிதானமாகச் செயல்படுங்கள்.';
  const size=page.locator('#horoscope-font-size'),range=page.locator('#horoscope-font-size-range'),weight=page.locator('#horoscope-font-weight');

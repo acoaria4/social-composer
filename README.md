@@ -4,6 +4,16 @@ Standalone social-media artwork Composer for gLitCh Labs, AURA, Lumen, and Expen
 
 Run `python3 -m http.server 8089` and open `http://localhost:8089/`. No build step or runtime dependencies are required.
 
+## Using the editor
+
+Choose a brand, then use **Create** for a blank canvas, background upload, or the AURA and Lumen templates. **Assets** contains brand artwork, custom uploads, and Expenses tint controls. Switching tabs or brands keeps the current session's drafts.
+
+Canvas size and grid controls sit above the preview. **More actions** contains **Remove all assets** and **Clear canvas**. On smaller screens, **View preview** jumps from the controls to the canvas.
+
+Use **Save design** to keep an editable composition in this browser and **Saved designs** to restore it. These saves are local to the browser and site origin; **Download PNG** creates a separate image file.
+
+With Playwright available through `NODE_PATH` and local Chrome installed, run `node scripts/test-editor.cjs` to check keyboard navigation, drafts, asset editing, uploads, saving/restoring, export, validation, and layouts at 390, 860, and 1440 px. Set `COMPOSER_URL` when using a different local port. Screenshots are written to `exports/editor/`.
+
 ## Publishing
 
 This public repository deploys independently through GitHub Pages from `main` at the repository root. `.nojekyll` enables plain static serving. Push changes here to update only the Composer. The original marketing website repository remains separate. The homepage link intentionally points to `https://theglitchlabs.com/`.

@@ -211,17 +211,14 @@
   function syncCreatedPane() {
     if (!els.createdPane || !els.createdToggle) return;
     els.createdPane.classList.toggle("is-collapsed", !state.createdPaneOpen);
+    els.createdPane.hidden = !state.createdPaneOpen;
     els.createdToggle.setAttribute(
       "aria-expanded",
       state.createdPaneOpen ? "true" : "false"
     );
     els.createdToggle.title = state.createdPaneOpen
-      ? "Close created pics"
-      : "Open created pics";
-    const label = els.createdToggle.querySelector(".pane-edge-toggle-label");
-    if (label) {
-      label.textContent = state.createdPaneOpen ? "Close" : "Created";
-    }
+      ? "Close saved designs"
+      : "Open saved designs";
   }
 
   function drawGrid() {
@@ -313,6 +310,7 @@
     if (!state.bgImage || !state.width) {
       ctx.clearRect(0, 0, els.canvas.width, els.canvas.height);
       syncSelectionBox();
+      updateChrome();
       return;
     }
 
@@ -869,7 +867,7 @@
     state.createdPaneOpen = true;
     saveCreatedPaneOpen();
     syncCreatedPane();
-    els.meta.textContent = `Saved “${entry.label}” to Created`;
+    els.meta.textContent = `Saved “${entry.label}” in this browser`;
   }
 
   function removeCreatedPic(id) {
@@ -1521,6 +1519,50 @@
   };
 
   // —— Events ——
+  document.getElementById("horoscope-font-size").addEventListener("invalid", () => {
+    document.getElementById("horoscope-typography").open = true;
+  });
+  const editorTabs = [...document.querySelectorAll('[role="tab"]')];
+  function selectEditorTab(tab) {
+    editorTabs.forEach(item => {
+      const selected = item === tab;
+      item.setAttribute("aria-selected", String(selected));
+      item.tabIndex = selected ? 0 : -1;
+      document.getElementById(item.getAttribute("aria-controls")).hidden = !selected;
+    });
+  }
+  editorTabs.forEach((tab, index) => {
+    tab.addEventListener("click", () => selectEditorTab(tab));
+    tab.addEventListener("keydown", event => {
+      let next;
+      if (event.key === "ArrowRight") next = (index + 1) % editorTabs.length;
+      if (event.key === "ArrowLeft") next = (index + editorTabs.length - 1) % editorTabs.length;
+      if (event.key === "Home") next = 0;
+      if (event.key === "End") next = editorTabs.length - 1;
+      if (next === undefined) return;
+      event.preventDefault();
+      selectEditorTab(editorTabs[next]);
+      editorTabs[next].focus();
+    });
+  });
+  document.querySelectorAll("[data-upload-background]").forEach(button => {
+    button.addEventListener("click", () => els.bgInput.click());
+  });
+  document.getElementById("btn-empty-blank").addEventListener("click", () => {
+    document.getElementById("btn-blank").click();
+    els.stage.focus();
+  });
+  document.getElementById("btn-upload-asset").addEventListener("click", () => els.customInput.click());
+  document.getElementById("btn-view-preview").addEventListener("click", () => {
+    els.stage.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "center" });
+    els.stage.focus({ preventScroll: true });
+  });
+  document.getElementById("btn-close-saved").addEventListener("click", () => {
+    state.createdPaneOpen = false;
+    saveCreatedPaneOpen();
+    syncCreatedPane();
+    els.createdToggle.focus();
+  });
   document.getElementById("btn-blank").addEventListener("click", async () => {
     try { await setBlankBackground(); }
     catch (error) { els.meta.textContent = error.message; }

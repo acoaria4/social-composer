@@ -6,9 +6,10 @@
     <title>Social Composer — gLitCh Labs</title>
     <link rel="icon" href="brands/current/glitchlabs-icon.png" type="image/png" />
     <link rel="stylesheet" href="css/fonts.css" />
-    <link rel="stylesheet" href="css/composer.css?v=standalone-lumen-1" />
+    <link rel="stylesheet" href="css/composer.css?v=organized-editor-1" />
   </head>
   <body>
+    <a class="skip-link" href="#stage-drop">Skip to canvas</a>
     <div class="app">
       <header class="toolbar">
         <a class="toolbar-home" href="https://theglitchlabs.com/" aria-label="gLitCh Labs home">
@@ -24,67 +25,82 @@
           </span>
         </a>
 
+
         <div class="toolbar-actions">
-          <button id="btn-blank" type="button" class="btn btn-ghost">Blank</button>
-          <label class="btn btn-ghost">
-            Upload
-            <input id="bg-input" type="file" accept="image/*" hidden />
-          </label>
-
-          <label class="field">
-            <span class="field-label">Size</span>
-            <select id="preset-select" aria-label="Export size">
-              <option value="native">Native (background)</option>
-              <option value="1080x1350">Instagram Portrait · 1080×1350</option>
-              <option value="1080x1080">Instagram Square · 1080×1080</option>
-              <option value="1080x1920">Story · 1080×1920</option>
-              <option value="1200x630">Landscape · 1200×630</option>
-              <option value="1600x900">X / Twitter · 1600×900</option>
-            </select>
-          </label>
-
-          <button
-            id="btn-grid"
-            type="button"
-            class="btn btn-ghost"
-            aria-pressed="true"
-            title="Toggle placement grid"
-          >
-            Grid
-          </button>
-          <button
-            id="btn-grid-invert"
-            type="button"
-            class="btn btn-ghost"
-            aria-pressed="false"
-            title="Invert gridline color (white / black)"
-          >
-            Invert grid
-          </button>
-          <button id="btn-clear" type="button" class="btn btn-ghost" disabled>
-            Clear marks
-          </button>
-          <button id="btn-reset" type="button" class="btn btn-ghost" disabled>
-            Clear Everything
-          </button>
+          <button id="btn-created-toggle" type="button" class="btn btn-ghost" aria-expanded="false" aria-controls="pane-created" title="Open saved designs">Saved designs</button>
           <button id="btn-save" type="button" class="btn btn-ghost" disabled>
-            Save
+            Save design
           </button>
           <button id="btn-download" type="button" class="btn btn-primary" disabled>
             Download PNG
           </button>
         </div>
       </header>
-
       <div class="workspace">
-        <aside class="pane" aria-label="Brand assets">
-          <nav class="brand-picker" aria-label="Choose a brand">
+        <aside class="pane editor-pane" aria-label="Design controls">
+          <div class="editor-navigation"><p class="section-label">Brand</p><nav class="brand-picker" aria-label="Choose a brand">
             <button type="button" class="btn" data-brand="expenses" aria-pressed="true">Expenses</button>
             <button type="button" class="btn" data-brand="aura" aria-pressed="false">AURA</button>
             <button type="button" class="btn" data-brand="lumen" aria-pressed="false">Lumen</button>
             <button type="button" class="btn" data-brand="glitch" aria-pressed="false">gLitCh Labs</button>
           </nav>
-          <details class="brand-group" data-brand-panel="expenses" open>
+
+          <div class="editor-tabs" role="tablist" aria-label="Design tools">
+            <button id="tab-create" type="button" role="tab" aria-selected="true" aria-controls="panel-create" tabindex="0">Create</button>
+            <button id="tab-assets" type="button" role="tab" aria-selected="false" aria-controls="panel-assets" tabindex="-1">Assets</button>
+          </div>
+          <button id="btn-view-preview" type="button" class="btn preview-jump">View preview ↓</button>
+          </div>
+          <section id="panel-create" role="tabpanel" aria-labelledby="tab-create" tabindex="0">
+            <section class="background-section" aria-labelledby="background-heading"><h2 id="background-heading">Start a canvas</h2><p class="pane-hint">Start fresh or use your own image. Add brand artwork in Assets.</p><div class="setup-actions">
+          <button id="btn-blank" type="button" class="btn btn-ghost">Blank canvas</button>
+          <button type="button" class="btn btn-ghost" data-upload-background>Upload background</button>
+          <input id="bg-input" type="file" accept="image/*" hidden />
+
+</div></section>
+<section class="horoscope-panel" data-brand-panel="aura" hidden aria-labelledby="aura-heading">
+            <h2 id="aura-heading" class="brand-heading brand-aura">Daily horoscope<span>.</span></h2>
+            <p class="pane-hint">All 12 Moon signs in one story. Paste your readings or fetch them from AURA.</p>
+            <section class="form-section" aria-labelledby="settings-heading"><h3 id="settings-heading">Post settings</h3>
+            <label class="horoscope-field">Reading source <select id="horoscope-source"><option value="manual" selected>Manual entry</option><option value="api">Fetch from AURA API</option></select></label>
+            <p hidden id="horoscope-api-status" class="api-status" data-state="checking" role="status" aria-live="polite">Checking API…</p>
+            <label class="horoscope-field">Reading date <input id="horoscope-date" type="date" min="1900-01-01" max="2100-12-31" required></label>
+            <label class="horoscope-field">Language <select id="horoscope-language"><option value="ta">தமிழ் · Tamil</option><option value="en">English</option></select></label>
+            <label class="horoscope-field">Post color <select id="horoscope-theme"><option value="daily">Automatic · reading day</option><option value="none">No tint · AURA ivory</option><option value="sunday">Sunday · Warm gold</option><option value="monday">Monday · Moon pearl</option><option value="tuesday">Tuesday · Terracotta</option><option value="wednesday">Wednesday · Sage</option><option value="thursday">Thursday · Saffron</option><option value="friday">Friday · Rose</option><option value="saturday">Saturday · Lavender</option></select></label>
+            <p class="pane-hint">Golden Rasi emblems, readings in your chosen language, and eight backgrounds. Every tint is available for any date.</p>
+            </section>
+            <details id="horoscope-typography" class="form-section typography-section"><summary>Typography</summary>
+            <div class="horoscope-field">
+              <label for="horoscope-font-size">Reading text size · px</label>
+              <div class="horoscope-size-controls">
+                <input id="horoscope-font-size-range" type="range" min="18" max="36" step="1" value="30" aria-label="Reading text size" aria-describedby="horoscope-type-hint">
+                <input id="horoscope-font-size" type="number" min="18" max="36" step="1" value="30" required aria-describedby="horoscope-type-hint">
+              </div>
+            </div>
+            <label class="horoscope-field">Reading text weight <select id="horoscope-font-weight" aria-describedby="horoscope-type-hint"><option value="400">Regular</option><option value="600" selected>Semibold</option><option value="700">Bold</option></select></label>
+            <p id="horoscope-type-hint" class="pane-hint">Applies to all 12 readings. Smaller text fits more. Select Create horoscope to apply; sign names keep their own style.</p>
+            </details>
+            <div id="horoscope-manual"><h3>Readings</h3><p class="pane-hint">Paste a reading for each sign. Your text stays here while you adjust the post or switch sources.</p><div id="horoscope-readings"></div></div>
+            <p hidden id="horoscope-context" class="pane-hint" lang="ta"></p>
+            <p id="horoscope-palette" class="pane-hint"></p>
+            <button id="horoscope-create" type="button" class="btn btn-primary">Create horoscope</button>
+            <button id="horoscope-blank" type="button" class="btn btn-ghost">Blank horoscope template</button>
+            <p id="horoscope-status" class="pane-hint" role="status" aria-live="polite">Choose a date to create a 1080 × 1920 story.</p>
+</section>
+<section class="lumen-fact-panel" data-brand-panel="lumen" hidden aria-labelledby="lumen-fact-heading">
+              <h2 id="lumen-fact-heading" class="brand-heading">Small fact. Big spark.</h2>
+              <p class="pane-hint">One consistent Lumen template for facts and explanations. English · 1080 × 1350.</p>
+              <label class="horoscope-field">Fact or explanation <textarea id="lumen-text" rows="7" placeholder="Enter your fact or explanation…" lang="en" aria-describedby="lumen-status"></textarea></label>
+              <label class="horoscope-field">Source (optional) <input id="lumen-source" type="text" placeholder="e.g. Met Office" maxlength="180"></label>
+              <label class="horoscope-field">Text size · px <input id="lumen-size" type="number" min="36" max="84" step="1" value="64" required></label>
+              <button id="lumen-create" type="button" class="btn btn-primary">Create Lumen post</button>
+              <p id="lumen-status" class="pane-hint" role="status" aria-live="polite">Paste your text to create a post. Your draft stays here while you switch brands.</p>
+            </section>
+
+          </section>
+          <section id="panel-assets" role="tabpanel" aria-labelledby="tab-assets" tabindex="0" hidden>
+            <p class="pane-hint">Click an asset to place it in the center, or drag it onto the canvas.</p>
+<details class="brand-group" data-brand-panel="expenses" open>
             <summary class="brand-heading brand-expenses">Expenses<span>.</span></summary>
             <div class="asset-grid" id="assets-expenses"></div>
             <div class="tint-panel" id="tint-panel" hidden>
@@ -128,57 +144,13 @@
               </div>
             </div>
           </details>
-          <details class="brand-group" data-brand-panel="aura" open hidden>
-            <summary class="brand-heading brand-aura">AURA<span>.</span></summary>
-          <details class="horoscope-panel" open>
-            <summary class="brand-heading brand-aura">Daily horoscope<span>.</span></summary>
-            <p class="pane-hint">All 12 Moon signs in one story. Paste your readings or fetch them from AURA.</p>
-            <label class="horoscope-field">Reading source <select id="horoscope-source"><option value="manual" selected>Manual entry</option><option value="api">Fetch from AURA API</option></select></label>
-            <p hidden id="horoscope-api-status" class="api-status" data-state="checking" role="status" aria-live="polite">Checking API…</p>
-            <label class="horoscope-field">Reading date <input id="horoscope-date" type="date" min="1900-01-01" max="2100-12-31" required></label>
-            <label class="horoscope-field">Language <select id="horoscope-language"><option value="ta">தமிழ் · Tamil</option><option value="en">English</option></select></label>
-            <label class="horoscope-field">Post color <select id="horoscope-theme"><option value="daily">Automatic · reading day</option><option value="none">No tint · AURA ivory</option><option value="sunday">Sunday · Warm gold</option><option value="monday">Monday · Moon pearl</option><option value="tuesday">Tuesday · Terracotta</option><option value="wednesday">Wednesday · Sage</option><option value="thursday">Thursday · Saffron</option><option value="friday">Friday · Rose</option><option value="saturday">Saturday · Lavender</option></select></label>
-            <p class="pane-hint">Golden Rasi emblems, readings in your chosen language, and eight backgrounds. Every tint is available for any date.</p>
-            <div class="horoscope-field">
-              <label for="horoscope-font-size">Reading text size · px</label>
-              <div class="horoscope-size-controls">
-                <input id="horoscope-font-size-range" type="range" min="18" max="36" step="1" value="30" aria-label="Reading text size" aria-describedby="horoscope-type-hint">
-                <input id="horoscope-font-size" type="number" min="18" max="36" step="1" value="30" required aria-describedby="horoscope-type-hint">
-              </div>
-            </div>
-            <label class="horoscope-field">Reading text weight <select id="horoscope-font-weight" aria-describedby="horoscope-type-hint"><option value="400">Regular</option><option value="600" selected>Semibold</option><option value="700">Bold</option></select></label>
-            <p id="horoscope-type-hint" class="pane-hint">Applies to all 12 readings. Smaller text fits more. Select Create horoscope to apply; sign names keep their own style.</p>
-            <div id="horoscope-manual"><p class="pane-hint">Paste a reading for each sign. Your text stays here while you adjust the post or switch sources.</p><div id="horoscope-readings"></div></div>
-            <p hidden id="horoscope-context" class="pane-hint" lang="ta"></p>
-            <p id="horoscope-palette" class="pane-hint"></p>
-            <button id="horoscope-create" type="button" class="btn btn-primary">Create horoscope</button>
-            <button id="horoscope-blank" type="button" class="btn btn-ghost">Blank horoscope template</button>
-            <p id="horoscope-status" class="pane-hint" role="status" aria-live="polite">Choose a date to create a 1080 × 1920 story.</p>
-          </details>
-
-            <div class="asset-grid" id="assets-aura"></div>
-          </details>
-          <details class="brand-group" data-brand-panel="lumen" open hidden>
-            <summary class="brand-heading brand-lumen">Lumen<span>.</span></summary>
-            <section class="lumen-fact-panel" aria-labelledby="lumen-fact-heading">
-              <h2 id="lumen-fact-heading" class="brand-heading">Small fact. Big spark.</h2>
-              <p class="pane-hint">One consistent Lumen template for facts and explanations. English · 1080 × 1350.</p>
-              <label class="horoscope-field">Fact or explanation <textarea id="lumen-text" rows="7" placeholder="Enter your fact or explanation…" lang="en" aria-describedby="lumen-status"></textarea></label>
-              <label class="horoscope-field">Source (optional) <input id="lumen-source" type="text" placeholder="e.g. Met Office" maxlength="180"></label>
-              <label class="horoscope-field">Text size · px <input id="lumen-size" type="number" min="36" max="84" step="1" value="64" required></label>
-              <button id="lumen-create" type="button" class="btn btn-primary">Create Lumen post</button>
-              <p id="lumen-status" class="pane-hint" role="status" aria-live="polite">Paste your text to create a post. Your draft stays here while you switch brands.</p>
-            </section>
-            <div class="asset-grid" id="assets-lumen"></div>
-          </details>
-          <details class="brand-group" data-brand-panel="glitch" open hidden>
-            <summary class="brand-heading brand-glitch">gLitCh Labs<span>.</span></summary>
-            <div class="asset-grid" id="assets-glitch"></div>
-          </details>
-          <details class="brand-group" open>
+<details class="brand-group" data-brand-panel="aura" open hidden><summary class="brand-heading">AURA assets</summary><div class="asset-grid" id="assets-aura"></div></details>
+<details class="brand-group" data-brand-panel="lumen" open hidden><summary class="brand-heading">Lumen assets</summary><div class="asset-grid" id="assets-lumen"></div></details>
+<details class="brand-group" data-brand-panel="glitch" open hidden><summary class="brand-heading">gLitCh Labs assets</summary><div class="asset-grid" id="assets-glitch"></div></details>
+<details class="brand-group" open>
             <summary class="brand-heading">Custom</summary>
-            <label class="btn btn-ghost custom-upload-btn">
-              Upload asset
+            <button type="button" id="btn-upload-asset" class="btn btn-ghost custom-upload-btn">Upload asset</button>
+              <span hidden>
               <input
                 id="custom-asset-input"
                 type="file"
@@ -186,7 +158,7 @@
                 multiple
                 hidden
               />
-            </label>
+            </span>
             <div class="asset-grid" id="assets-custom"></div>
             <p id="custom-empty" class="pane-hint custom-empty">
               Upload PNG/JPG marks for this browser. Transparent PNGs work best.
@@ -196,10 +168,50 @@
             Drag a mark onto the stage, or click to place centered. Drag to move,
             corners to scale. Delete removes the selection.
           </p>
-        </aside>
 
-        <main class="stage-wrap">
-          <div
+          </section>
+        </aside>
+        <main class="stage-wrap" aria-label="Preview">
+          <div class="canvas-toolbar">          <label class="field">
+            <span class="field-label">Canvas size</span>
+            <select id="preset-select" aria-label="Export size">
+              <option value="native">Native (background)</option>
+              <option value="1080x1350">Instagram Portrait · 1080×1350</option>
+              <option value="1080x1080">Instagram Square · 1080×1080</option>
+              <option value="1080x1920">Story · 1080×1920</option>
+              <option value="1200x630">Landscape · 1200×630</option>
+              <option value="1600x900">X / Twitter · 1600×900</option>
+            </select>
+          </label>
+
+          <button
+            id="btn-grid"
+            type="button"
+            class="btn btn-ghost"
+            aria-pressed="true"
+            title="Toggle placement grid"
+          >
+            Grid
+          </button>
+          <button
+            id="btn-grid-invert"
+            type="button"
+            class="btn btn-ghost"
+            aria-pressed="false"
+            title="Invert gridline color (white / black)"
+          >
+            Invert grid
+          </button>
+
+            <details class="more-actions"><summary class="btn">More actions</summary><div class="more-actions-menu">          <button id="btn-clear" type="button" class="btn btn-ghost" disabled>
+            Remove all assets
+          </button>
+          <button id="btn-reset" type="button" class="btn btn-ghost" disabled>
+            Clear canvas
+          </button>
+</div></details>
+          </div>
+<div
             id="stage-drop"
             class="stage-drop"
             tabindex="0"
@@ -208,8 +220,10 @@
           >
             <canvas id="stage-canvas"></canvas>
             <div id="empty-state" class="empty-state">
-              <p>Drop a background image here</p>
-              <p class="empty-sub">or choose Upload or Blank</p>
+              <p>Your next post starts here</p>
+              <p class="empty-sub">Choose a brand template in Create, or start with a background.</p>
+              <div class="empty-actions"><button type="button" class="btn btn-primary" id="btn-empty-blank">Blank canvas</button><button type="button" class="btn" data-upload-background>Upload background</button></div>
+              <p class="empty-sub">You can also drop an image onto this canvas.</p>
             </div>
             <div id="selection-box" class="selection-box" hidden>
               <span class="handle nw" data-handle="nw"></span>
@@ -219,38 +233,22 @@
             </div>
           </div>
           <p id="meta" class="meta" role="status" aria-live="polite"></p>
-        </main>
 
-        <aside
-          id="pane-created"
-          class="pane pane-created is-collapsed"
-          aria-label="Created pics"
-        >
-          <button
-            id="btn-created-toggle"
-            type="button"
-            class="pane-edge-toggle"
-            aria-expanded="false"
-            aria-controls="pane-created-body"
-            title="Open created pics"
-          >
-            <span class="pane-edge-toggle-label">Created</span>
-          </button>
+        </main>
+        <aside id="pane-created" class="pane pane-created is-collapsed" aria-label="Saved designs" hidden>
           <div id="pane-created-body" class="pane-created-body">
-            <p class="brand-heading pane-created-heading">Created</p>
+            <div class="saved-heading"><h2 class="pane-created-heading">Saved designs</h2><button id="btn-close-saved" class="btn" type="button" aria-label="Close saved designs">×</button></div>
+            <p class="pane-hint">Saved in this browser only. Download a PNG to keep a file.</p>
             <div class="asset-grid" id="assets-created"></div>
-            <p id="created-empty" class="pane-hint">
-              Saved compositions appear here. Click to restore and edit.
-            </p>
+            <p id="created-empty" class="pane-hint">Your saved designs will appear here. Select one to restore and edit.</p>
           </div>
         </aside>
       </div>
     </div>
-
-    <script src="js/composer.js?v=standalone-lumen-1"></script>
-    <script src="js/horoscope-template.js?v=standalone-lumen-1"></script>
-    <script src="js/lumen-template.js?v=standalone-lumen-1"></script>
-    <script src="js/lumen.js?v=standalone-lumen-1"></script>
-    <script src="js/horoscope.js?v=standalone-lumen-1"></script>
+    <script src="js/composer.js?v=organized-editor-1"></script>
+    <script src="js/horoscope-template.js?v=organized-editor-1"></script>
+    <script src="js/lumen-template.js?v=organized-editor-1"></script>
+    <script src="js/lumen.js?v=organized-editor-1"></script>
+    <script src="js/horoscope.js?v=organized-editor-1"></script>
   </body>
 </html>
