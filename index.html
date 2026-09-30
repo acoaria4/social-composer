@@ -92,7 +92,7 @@
               <summary id="lumen-fact-heading" class="brand-heading">Small fact. Big spark.</summary>
               <p class="pane-hint">One consistent Lumen template for facts and explanations. English · 1080 × 1350.</p>
               <label class="horoscope-field">Fact or explanation <textarea id="lumen-text" rows="7" placeholder="Enter your fact or explanation…" lang="en" aria-describedby="lumen-status"></textarea></label>
-              <label class="horoscope-field">Source (optional) <input id="lumen-source" type="text" placeholder="e.g. Met Office" maxlength="180"></label>
+              <label class="horoscope-field">Subject <select id="lumen-subject"><option value="none" selected>None · Graphite</option><option value="maths">Maths · Pink</option><option value="physics">Physics · Blue</option><option value="chemistry">Chemistry · Purple</option><option value="biology">Biology · Green</option><option value="social">Social · Yellow</option></select></label>
               <label class="horoscope-field">Text size · px <input id="lumen-size" type="number" min="36" max="84" step="1" value="64" required></label>
               <button id="lumen-create" type="button" class="btn btn-primary">Create Lumen post</button>
               <p id="lumen-status" class="pane-hint" role="status" aria-live="polite">Paste your text to create a post. Your draft stays here while you switch brands.</p>
@@ -278,8 +278,8 @@
     <script src="js/viewport.js?v=preview-zoom-1"></script>
     <script src="js/composer.js?v=preview-zoom-1"></script>
     <script src="js/horoscope-template.js?v=preview-zoom-1"></script>
-    <script src="js/lumen-template.js?v=preview-zoom-1"></script>
-    <script src="js/lumen.js?v=preview-zoom-1"></script>
+    <script src="js/lumen-template.js?v=lumen-subjects-1"></script>
+    <script src="js/lumen.js?v=lumen-subjects-1"></script>
     <script src="js/horoscope.js?v=preview-zoom-1"></script>
   </body>
 </html>

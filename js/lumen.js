@@ -1,9 +1,10 @@
 (() => {
   'use strict';
-  const text=document.getElementById('lumen-text'),source=document.getElementById('lumen-source'),size=document.getElementById('lumen-size'),button=document.getElementById('lumen-create'),status=document.getElementById('lumen-status');
+  const text=document.getElementById('lumen-text'),subject=document.getElementById('lumen-subject'),size=document.getElementById('lumen-size'),button=document.getElementById('lumen-create'),status=document.getElementById('lumen-status');
   let revision=0;
   const invalidate=()=>{revision++;button.disabled=false;button.textContent='Create Lumen post';status.textContent='Create to apply your changes. The current canvas stays unchanged until ready.';};
-  [text,source,size].forEach(input=>input.addEventListener('input',invalidate));
+  [text,size].forEach(input=>input.addEventListener('input',invalidate));
+  subject.addEventListener('change',invalidate);
   document.querySelectorAll('[data-brand]:not([data-brand="lumen"])').forEach(button=>button.addEventListener('click',invalidate));
   button.addEventListener('click',async()=>{
     if(!text.value.trim()){text.focus();status.textContent='Enter a fact or explanation first.';return;}
@@ -11,7 +12,7 @@
     const version=++revision;
     button.disabled=true;button.textContent='Creating…';status.textContent='Preparing your Lumen post…';
     try{
-      const blob=await window.LumenFactTemplate.render({text:text.value,source:source.value,fontSize:size.valueAsNumber});
+      const blob=await window.LumenFactTemplate.render({text:text.value,subject:subject.value,fontSize:size.valueAsNumber});
       if(version!==revision)return;
       if(!await window.lumenComposer.setFact(blob,()=>version===revision))return;
       status.textContent='Ready: 1080 × 1350 · Lumen fact post. Save or Download PNG to keep it.';

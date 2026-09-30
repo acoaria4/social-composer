@@ -36,9 +36,11 @@ The legacy Composer at the marketing website is retained as a frozen copy during
 
 ## Lumen fact posts
 
-Select **Lumen**, enter an English fact or explanation, add an optional short source label, and select **Create Lumen post**. The uniform 1080 × 1350 template uses the Lumen logo, Outfit typography, blush background, plum reading text, a pink edge/beam, and a spark footer. The Lumen website appears in the footer rather than an assumed social handle.
+Select **Lumen**, enter an English fact or explanation, choose a subject, and select **Create Lumen post**. The uniform 1080 × 1350 template uses the Lumen logo, Outfit typography, a subject-colored background, automatically contrasting text, a matching edge/beam, and a spark footer. The Lumen website appears in the footer rather than an assumed social handle.
 
-**Text size** is adjustable from 36 to 84 px (default 64). Text is wrapped without silently shrinking or truncating. Overlong content or source lines show an error and keep the current canvas. Draft fields survive brand changes during the page session. Save and Download PNG use the normal Composer workflow. Text is not automatically fact-checked.
+Subjects are **None · Graphite** (default), **Maths · Pink**, **Physics · Blue**, **Chemistry · Purple**, **Biology · Green**, and **Social · Yellow**. Named subjects appear in the former source-line position. None omits the entire subject line and uses a light logo on graphite; the five pastel palettes use the dark logo. Subject changes apply when you select **Create Lumen post**, and the selection survives brand switches during the session. Existing saved designs are unchanged.
+
+**Text size** is adjustable from 36 to 84 px (default 64). Text is wrapped without silently shrinking or truncating. Overlong content show an error and keep the current canvas. Draft fields survive brand changes during the page session. Save and Download PNG use the normal Composer workflow. Text is not automatically fact-checked.
 
 Run `node scripts/test-lumen.cjs` with Playwright available through `NODE_PATH` and local Chrome installed. `COMPOSER_URL` overrides the test URL. The test exports a layout sample under `exports/lumen/`; its lightning fact is supported by the Met Office: https://weather.metoffice.gov.uk/learn-about/weather/types-of-weather/thunder-and-lightning
 
