@@ -78,6 +78,8 @@ const path = require('node:path');
     assert.match(await page.locator('#meta').innerText(), /3 marks/);
     await page.locator('#btn-close-saved').click();
     await page.locator('#bg-input').setInputFiles(path.resolve(__dirname, '../brands/current/lumen-icon.png'));
+    await page.waitForFunction(() => document.querySelector('#meta').textContent.includes('no marks'));
+    await page.locator('#preset-select').selectOption('native');
     await page.waitForFunction(() => document.querySelector('#meta').textContent.includes('native'));
     await page.locator('#preset-select').selectOption('1080x1080');
     assert.deepEqual(await page.locator('#stage-canvas').evaluate(c => [c.width, c.height]), [1080, 1080]);

@@ -7,6 +7,7 @@ const {chromium}=require('playwright');const assert=require('node:assert/strict'
  const text=page.locator('#lumen-text'),subject=page.locator('#lumen-subject'),size=page.locator('#lumen-size'),create=page.locator('#lumen-create');
  const canvas=()=>page.locator('#stage-canvas').evaluate(c=>c.toDataURL());
  assert.equal(await subject.inputValue(),'none');
+ assert.equal(await size.inputValue(),'72');
  const initial=await canvas();await create.click();assert.equal(await text.evaluate(e=>e===document.activeElement),true);assert.equal(await canvas(),initial);
  const sample='Light travels faster than sound. That’s why you see lightning before you hear thunder.';
  await text.fill(sample);await subject.selectOption('physics');await create.click();await page.waitForFunction(()=>document.querySelector('#lumen-status').textContent.startsWith('Ready:'));

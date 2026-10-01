@@ -125,6 +125,8 @@
 
   let textTools;
   let viewport;
+  let lumenFormat = "1080x1920";
+  const lumenActive = () => document.querySelector('[data-brand="lumen"]').getAttribute("aria-pressed") === "true";
   let idSeq = 1;
   let customSeq = 1;
   let createdSeq = 1;
@@ -361,8 +363,10 @@
     const hasBg = Boolean(state.bgImage);
     els.empty.hidden = hasBg;
     const lumenPost = hasBg && state.templateBrand === "lumen";
-    els.preset.disabled = lumenPost;
-    document.getElementById("lumen-format-guidance").hidden = !lumenPost;
+    els.preset.disabled = false;
+    const lumenLayout = lumenPost || (lumenActive() && !hasBg);
+    els.preset.querySelector('option[value="native"]').disabled = lumenLayout;
+    document.getElementById("lumen-format-guidance").hidden = !lumenLayout;
     textTools?.sync();
     const textOutside = state.overlays.some(o => o.type === "text" && (o.x < 0 || o.y < 0 || o.x + o.width > state.width || o.y + o.height > state.height));
     els.download.disabled = !hasBg || !state.textReady || textOutside;
@@ -949,6 +953,7 @@
           ? comp.presetKey
           : "native";
       if (els.preset) els.preset.value = state.presetKey;
+      if (state.templateBrand === "lumen" && Object.hasOwn(window.LumenFactTemplate.formats, state.presetKey)) lumenFormat = state.presetKey;
 
       state.textStyles = window.ComposerText.normalize(comp.textStyles);
       state.overlays = (comp.overlays || []).map((o) => ({
@@ -1502,7 +1507,8 @@
   }
 
   async function setBlankBackground() {
-    const preset = currentPreset() || PRESETS["1080x1080"];
+    const presetKey = els.preset.value;
+    const preset = PRESETS[presetKey] || PRESETS["1080x1080"];
     const canvas = document.createElement("canvas");
     canvas.width = preset.w;
     canvas.height = preset.h;
@@ -1512,7 +1518,10 @@
     // Use the same image pipeline as uploads so save, restore and export work normally.
     const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
     if (!blob) throw new Error("Could not create a blank background");
-    await setBackground(blob);
+    await setBackground(blob, () => {
+      state.presetKey = presetKey;
+      return true;
+    });
   }
 
   // Shared canvas pipeline: template posts retain normal placement, saving and export.
@@ -1533,11 +1542,12 @@
   };
 
   window.lumenComposer = {
+    getFormat: () => Object.hasOwn(window.LumenFactTemplate.formats, els.preset.value) ? els.preset.value : lumenFormat,
     async setFact(blob, format = "1080x1920", isCurrent = () => true) {
       if (!Object.hasOwn(window.LumenFactTemplate.formats, format)) throw new Error("Choose a valid Lumen format.");
       const applied=await setBackground(blob,()=>{
         if(!isCurrent())return false;
-        state.presetKey=format;els.preset.value=state.presetKey;
+        lumenFormat=format;state.presetKey=format;els.preset.value=state.presetKey;
         state.showGrid=false;syncGridToggle();return true;
       });
       if(!applied)return false;
@@ -1612,6 +1622,8 @@
         panel.hidden = panel.dataset.brandPanel !== button.dataset.brand;
 
       });
+      els.preset.value = lumenActive() || state.templateBrand === "lumen" ? lumenFormat : state.presetKey;
+      updateChrome();
     });
   });
 
@@ -1640,7 +1652,13 @@
   }
 
   els.preset.addEventListener("change", () => {
-    if (state.bgImage && state.templateBrand === "lumen") { els.preset.value = state.presetKey; return; }
+    if (lumenActive() && Object.hasOwn(window.LumenFactTemplate.formats, els.preset.value)) lumenFormat = els.preset.value;
+    if (state.templateBrand === "lumen" || (lumenActive() && !state.bgImage)) {
+      if (Object.hasOwn(window.LumenFactTemplate.formats, els.preset.value)) lumenFormat = els.preset.value;
+      else els.preset.value = lumenFormat;
+      updateChrome();
+      return;
+    }
     state.presetKey = els.preset.value;
     if (!state.bgImage) {
       updateChrome();

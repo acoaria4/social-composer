@@ -8,9 +8,11 @@ const fs=require('node:fs');const path=require('node:path');
   page.on('pageerror',e=>errors.push(e.message));
   await page.goto(process.env.COMPOSER_URL||'http://127.0.0.1:8089/');
   await page.locator('[data-brand="lumen"]').click();await page.locator('#lumen-fact-heading').click();
-  const format=page.locator('#lumen-format'),text=page.locator('#lumen-text'),subject=page.locator('#lumen-subject');
+  const format=page.locator('#preset-select'),text=page.locator('#lumen-text'),subject=page.locator('#lumen-subject');
   assert.equal(await format.inputValue(),'1080x1920');
-  assert.deepEqual(await format.locator('option').evaluateAll(es=>es.map(e=>e.value)),['1080x1920','1080x1080','1080x1350','1200x630','1600x900']);
+  assert.equal(await page.locator('#lumen-size').inputValue(),'72');
+  assert.equal(await page.locator('#lumen-format').count(),0);
+  assert.deepEqual(await format.locator('option').evaluateAll(es=>es.filter(e=>e.value!=='native').map(e=>e.value)),['1080x1350','1080x1080','1080x1920','1200x630','1600x900']);
   const sample='Light travels faster than sound. That’s why you see lightning before you hear thunder.';
   await text.fill(sample);await subject.selectOption('physics');
   const create=async()=>{await page.locator('#lumen-create').click();await page.waitForFunction(()=>document.querySelector('#lumen-status').textContent.startsWith('Ready:'));};
@@ -54,24 +56,56 @@ const fs=require('node:fs');const path=require('node:path');
       if(call.font.includes('Outfit')) assert.ok(call.top>=layout.bodyTop&&call.bottom<=layout.bodyBottom);
       if(format==='1080x1920') assert.ok(call.left>=180-1&&call.right<=900+1&&call.top>=270&&call.bottom<=1636);
     }
-    assert.equal(logo.length,1);
-    assert.ok(logo[0].x>=layout.left&&logo[0].x+logo[0].w<=layout.right);
-    assert.ok(logo[0].y+logo[0].h<layout.labelY-20,'Logo and reading label must not overlap');
+    assert.equal(logo.length,2);
+    for(const image of logo){
+      assert.ok(image.x>=layout.left&&image.x+image.w<=layout.right);
+      assert.ok(image.y+image.h<layout.labelY-20,'Brand artwork and reading label must not overlap');
+    }
+    const slogan=calls.find(c=>c.text==='A LITTLE MORE');
+    assert.ok(logo[1].x+logo[1].w+24<=slogan.left,'Wordmark and slogan need clear separation');
+    const reading=calls.filter(c=>c.font.includes('Outfit'));
+    const readingTop=Math.min(...reading.map(c=>c.top)),readingBottom=Math.max(...reading.map(c=>c.bottom));
+    assert.ok(Math.abs((readingTop+readingBottom)/2-(layout.bodyTop+layout.bodyBottom)/2)<.01,`${format}/${subject}: reading must be vertically centered`);
+    assert.ok(Math.max(...reading.map(c=>c.bottom))+20<=layout.subjectY-32,'Reading and subject need clear separation');
+    assert.ok(layout.sparkY+layout.sparkSize<layout.height);
+    assert.ok(layout.sparkY-layout.sparkSize>=layout.dividerY+4,'Spark must stay below the divider');
+    const subjectLine=calls.find(c=>c.y===layout.subjectY);
+    if(subjectLine) assert.ok(subjectLine.bottom+8<=layout.dividerY,'Subject must stay above the divider');
+    if(format==='1080x1920') assert.ok(layout.sparkY+layout.sparkSize<=1636);
     assert.deepEqual(calls.filter(c=>c.y===layout.subjectY).map(c=>c.text),subject==='none'?[]:[subject[0].toUpperCase()+subject.slice(1)]);
     for(const key of ['png','phone','reels'])if(item[key])fs.writeFileSync(path.join(dir,`${format}-${subject}${key==='png'?'':`-${key}`}.png`),Buffer.from(item[key].split(',')[1],'base64'));
+  }
+  const centeredCases=await page.evaluate(async()=>{
+    const original=CanvasRenderingContext2D.prototype.fillText;
+    let bounds=[];const results=[];
+    CanvasRenderingContext2D.prototype.fillText=function(text,x,y,...args){if(this.font.includes('Outfit')){const m=this.measureText(text);bounds.push({top:y-m.actualBoundingBoxAscent,bottom:y+m.actualBoundingBoxDescent});}return original.call(this,text,x,y,...args);};
+    try{
+      for(const [format,layout] of Object.entries(LumenFactTemplate.formats)){
+        for(const {text,fontSize} of [{text:'A little curiosity.',fontSize:72},{text:'gyp\nACE',fontSize:84},{text:'First paragraph.\n\nAnother thought.',fontSize:36}]){
+          bounds=[];await LumenFactTemplate.render({text,fontSize,format});
+          results.push({format,text,layout,top:Math.min(...bounds.map(b=>b.top)),bottom:Math.max(...bounds.map(b=>b.bottom))});
+        }
+      }
+    }finally{CanvasRenderingContext2D.prototype.fillText=original;}
+    return results;
+  });
+  for(const {format,text,layout,top,bottom} of centeredCases){
+    assert.ok(top>=layout.bodyTop&&bottom<=layout.bodyBottom,`${format}: ${text} fits the reading area`);
+    assert.ok(Math.abs((top+bottom)/2-(layout.bodyTop+layout.bodyBottom)/2)<.01,`${format}: short text and paragraphs must remain centered`);
   }
   for(const key of ['1080x1920','1080x1080','1080x1350','1200x630','1600x900']){
     await format.selectOption(key);await create();
     assert.deepEqual(await page.locator('#stage-canvas').evaluate(c=>[c.width,c.height]),key.split('x').map(Number));
-    assert.equal(await page.locator('#preset-select').isDisabled(),true);
+    assert.equal(await page.locator('#preset-select').isDisabled(),false);
     assert.equal(await page.locator('#lumen-format-guidance').isVisible(),true);
     const stable=await canvas();
     await page.locator('#preset-select').evaluate(e=>{e.value='1080x1080';e.dispatchEvent(new Event('change',{bubbles:true}));});
-    assert.equal(await canvas(),stable);assert.equal(await page.locator('#preset-select').inputValue(),key);
+    assert.equal(await canvas(),stable);assert.equal(await page.locator('#preset-select').inputValue(),'1080x1080');
+    await format.selectOption(key);
     const download=page.waitForEvent('download');await page.locator('#btn-download').click();assert.equal((await download).suggestedFilename(),`lumen-fact-${key}.png`);
     await text.fill(sample.repeat(50));await page.locator('#lumen-create').click();
     await page.waitForFunction(()=>document.querySelector('#lumen-status').textContent.includes('too long'));
-    assert.equal(await canvas(),stable);assert.match(await page.locator('#lumen-status').innerText(),/at 64 px/);await text.fill(sample);
+    assert.equal(await canvas(),stable);assert.match(await page.locator('#lumen-status').innerText(),/at 72 px/);await text.fill(sample);
   }
   await format.selectOption('1080x1920');await create();const before=await canvas();
   await format.selectOption('1080x1080');assert.equal(await canvas(),before);
@@ -83,14 +117,23 @@ const fs=require('node:fs');const path=require('node:path');
   assert.equal(await canvas(),before);
   await create();await page.locator('#btn-save').click();
   await page.reload();if(!await page.locator('#pane-created').isVisible())await page.locator('#btn-created-toggle').click();await page.locator('#assets-created > .asset-chip').first().click();
-  await page.waitForFunction(()=>document.querySelector('#preset-select').disabled);
+  await page.waitForFunction(()=>!document.querySelector('#btn-download').disabled);
+  assert.equal(await page.locator('#preset-select').inputValue(),'1200x630');
   assert.deepEqual(await page.locator('#stage-canvas').evaluate(c=>[c.width,c.height]),[1200,630]);
   await page.locator('#btn-close-saved').click();
   await page.locator('#bg-input').setInputFiles(path.resolve(__dirname,'../brands/current/lumen-icon.png'));
-  await page.waitForFunction(()=>!document.querySelector('#preset-select').disabled);assert.equal(await page.locator('#lumen-format-guidance').isVisible(),false);
+  await page.waitForFunction(()=>document.querySelector('#bg-input').value==='');
+  await page.locator('[data-brand="lumen"]').click();
+  assert.equal(await format.isDisabled(),false);
+  assert.equal(await format.locator('option[value="native"]').isDisabled(),false);
+  await format.selectOption('native');
+  const nativeDimensions=await page.evaluate(async()=>{const image=new Image();image.src='brands/current/lumen-icon.png';await image.decode();return [image.naturalWidth,image.naturalHeight];});
+  assert.deepEqual(await page.locator('#stage-canvas').evaluate(c=>[c.width,c.height]),nativeDimensions);
+  await format.selectOption('1080x1080');
+  assert.deepEqual(await page.locator('#stage-canvas').evaluate(c=>[c.width,c.height]),[1080,1080]);
   assert.match(await page.evaluate(async()=>{try{await LumenFactTemplate.render({text:'A fact',format:'native'});}catch(e){return e.message;}}),/valid Lumen format/);
   await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   assert.deepEqual(errors,[]);
-  console.log('PASS: 30 Lumen layouts, dimensions and content bounds, AURA story margins, subject omission, PNG names, pending/stale format changes, overflow, saved restore, crop protection, and mobile width.');
+  console.log('PASS: 30 Lumen layouts, centered body text and paragraph gaps at 36–84 px, dimensions and content bounds, AURA story margins, subject omission, PNG names, pending/stale format changes, overflow, saved restore, crop protection, and mobile width.');
  }finally{await browser.close();}
 })();

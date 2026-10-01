@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const text=document.getElementById('lumen-text'),subject=document.getElementById('lumen-subject'),format=document.getElementById('lumen-format'),size=document.getElementById('lumen-size'),button=document.getElementById('lumen-create'),status=document.getElementById('lumen-status');
+  const text=document.getElementById('lumen-text'),subject=document.getElementById('lumen-subject'),format=document.getElementById('preset-select'),size=document.getElementById('lumen-size'),button=document.getElementById('lumen-create'),status=document.getElementById('lumen-status');
   let revision=0;
   const invalidate=()=>{revision++;button.disabled=false;button.textContent='Create Lumen post';status.textContent='Create to apply your changes. The current canvas stays unchanged until ready.';};
   [text,size].forEach(input=>input.addEventListener('input',invalidate));
@@ -10,7 +10,7 @@
   button.addEventListener('click',async()=>{
     if(!text.value.trim()){text.focus();status.textContent='Enter a fact or explanation first.';return;}
     if(!size.reportValidity())return;
-    const selectedFormat=format.value;
+    const selectedFormat=window.lumenComposer.getFormat();
     const version=++revision;
     button.disabled=true;button.textContent='Creating…';status.textContent='Preparing your Lumen post…';
     try{
