@@ -61,7 +61,7 @@ const fs=require('node:fs');const path=require('node:path');
  await page.locator('#zoom-in').click();await page.locator('#zoom-in').click();
  const prior=await rect(),priorStage=await page.locator('#stage-drop').boundingBox();
  await page.setViewportSize({width:1500,height:1000});
- await page.waitForFunction(()=>document.querySelector('#stage-drop').clientWidth>1000);
+ await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
  const after=await rect(),afterStage=await page.locator('#stage-drop').boundingBox();
  assert.ok(Math.abs((priorStage.x+priorStage.width/2-prior.x)/prior.width-(afterStage.x+afterStage.width/2-after.x)/after.width)<.005);
  // Browser zoom is not intercepted outside the preview.

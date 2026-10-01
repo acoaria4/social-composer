@@ -90,9 +90,10 @@
 </details>
 <details class="lumen-fact-panel tool-section" data-brand-panel="lumen" hidden aria-labelledby="lumen-fact-heading">
               <summary id="lumen-fact-heading" class="brand-heading">Small fact. Big spark.</summary>
-              <p class="pane-hint">One consistent Lumen template for facts and explanations. English · 1080 × 1350.</p>
+              <p class="pane-hint">Lumen facts and explanations in five formats. English · Story / Reel uses the same safe margins as AURA.</p>
               <label class="horoscope-field">Fact or explanation <textarea id="lumen-text" rows="7" placeholder="Enter your fact or explanation…" lang="en" aria-describedby="lumen-status"></textarea></label>
               <label class="horoscope-field">Subject <select id="lumen-subject"><option value="none" selected>None · Graphite</option><option value="maths">Maths · Pink</option><option value="physics">Physics · Blue</option><option value="chemistry">Chemistry · Purple</option><option value="biology">Biology · Green</option><option value="social">Social · Yellow</option></select></label>
+              <label class="horoscope-field">Format <select id="lumen-format"><option value="1080x1920" selected>Story / Reel · 9:16 — 1080 × 1920</option><option value="1080x1080">Square · 1:1 — 1080 × 1080</option><option value="1080x1350">Portrait · 4:5 — 1080 × 1350</option><option value="1200x630">Landscape · 1.91:1 — 1200 × 630</option><option value="1600x900">Landscape · 16:9 — 1600 × 900</option></select></label>
               <label class="horoscope-field">Text size · px <input id="lumen-size" type="number" min="36" max="84" step="1" value="64" required></label>
               <button id="lumen-create" type="button" class="btn btn-primary">Create Lumen post</button>
               <p id="lumen-status" class="pane-hint" role="status" aria-live="polite">Paste your text to create a post. Your draft stays here while you switch brands.</p>
@@ -195,7 +196,7 @@
         <main class="stage-wrap" aria-label="Preview">
           <div class="canvas-toolbar">          <label class="field">
             <span class="field-label">Canvas size</span>
-            <select id="preset-select" aria-label="Export size">
+            <select id="preset-select" aria-label="Export size" aria-describedby="lumen-format-guidance">
               <option value="native">Native (background)</option>
               <option value="1080x1350">Instagram Portrait · 1080×1350</option>
               <option value="1080x1080">Instagram Square · 1080×1080</option>
@@ -232,6 +233,7 @@
           </button>
 </div></details>
           </div>
+          <p id="lumen-format-guidance" class="pane-hint" hidden>For Lumen, choose Format in Create → Lumen, then select Create Lumen post.</p>
           <div class="viewport-toolbar" role="group" aria-label="Preview zoom and pan">
             <button id="zoom-out" class="btn" type="button" aria-label="Zoom out" disabled>−</button>
             <output id="zoom-level" aria-live="polite" aria-label="Preview zoom">—</output>
@@ -276,10 +278,10 @@
     </div>
     <script src="js/text-boxes.js?v=preview-zoom-1"></script>
     <script src="js/viewport.js?v=preview-zoom-1"></script>
-    <script src="js/composer.js?v=preview-zoom-1"></script>
+    <script src="js/composer.js?v=lumen-formats-1"></script>
     <script src="js/horoscope-template.js?v=preview-zoom-1"></script>
-    <script src="js/lumen-template.js?v=lumen-subjects-1"></script>
-    <script src="js/lumen.js?v=lumen-subjects-1"></script>
+    <script src="js/lumen-template.js?v=lumen-formats-1"></script>
+    <script src="js/lumen.js?v=lumen-formats-1"></script>
     <script src="js/horoscope.js?v=preview-zoom-1"></script>
   </body>
 </html>

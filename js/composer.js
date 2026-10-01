@@ -360,6 +360,9 @@
   function updateChrome() {
     const hasBg = Boolean(state.bgImage);
     els.empty.hidden = hasBg;
+    const lumenPost = hasBg && state.templateBrand === "lumen";
+    els.preset.disabled = lumenPost;
+    document.getElementById("lumen-format-guidance").hidden = !lumenPost;
     textTools?.sync();
     const textOutside = state.overlays.some(o => o.type === "text" && (o.x < 0 || o.y < 0 || o.x + o.width > state.width || o.y + o.height > state.height));
     els.download.disabled = !hasBg || !state.textReady || textOutside;
@@ -1530,14 +1533,15 @@
   };
 
   window.lumenComposer = {
-    async setFact(blob, isCurrent = () => true) {
+    async setFact(blob, format = "1080x1920", isCurrent = () => true) {
+      if (!Object.hasOwn(window.LumenFactTemplate.formats, format)) throw new Error("Choose a valid Lumen format.");
       const applied=await setBackground(blob,()=>{
         if(!isCurrent())return false;
-        state.presetKey="1080x1350";els.preset.value=state.presetKey;
+        state.presetKey=format;els.preset.value=state.presetKey;
         state.showGrid=false;syncGridToggle();return true;
       });
       if(!applied)return false;
-      state.templateBrand="lumen";return true;
+      state.templateBrand="lumen";updateChrome();return true;
     }
   };
 
@@ -1636,6 +1640,7 @@
   }
 
   els.preset.addEventListener("change", () => {
+    if (state.bgImage && state.templateBrand === "lumen") { els.preset.value = state.presetKey; return; }
     state.presetKey = els.preset.value;
     if (!state.bgImage) {
       updateChrome();
