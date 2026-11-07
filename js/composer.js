@@ -1979,7 +1979,7 @@
   };
 
   window.lumenComposer = {
-    getFormat: () => Object.hasOwn(window.LumenFactTemplate.formats, els.preset.value) ? els.preset.value : lumenFormat,
+    getFormat: () => lumenActive() && Object.hasOwn(window.LumenFactTemplate.formats, els.preset.value) ? els.preset.value : lumenFormat,
     setDraftFormat(format) {
       if (!Object.hasOwn(window.LumenFactTemplate.formats, format)) return false;
       lumenFormat = format;
@@ -2444,6 +2444,7 @@
   syncCreatedPane();
   bootCreatedPics();
   wireTintControls();
+  selectBrand(document.querySelector('[data-brand][aria-pressed="true"]'));
   history = window.ComposerSession.createHistory({ capture: captureDocument, apply: applyHistory, onChange: documentChanged, limit: 40, measure: historyRetainedBytes, maxBytes: 128 * 1024 * 1024 });
   lastDocumentKey = captureDocument().key;
   savedDocumentKey = lastDocumentKey;

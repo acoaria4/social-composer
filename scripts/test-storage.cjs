@@ -20,6 +20,8 @@ const cardsSelector = '#assets-created .asset-chip';
       page.on('pageerror', error => errors.push(error.message));
       await page.goto(url);
       await page.waitForFunction(() => !!document.querySelector('[data-asset-id="expenses-icon"]'));
+      await page.locator('[data-brand="expenses"]').click();
+      await page.locator('#preset-select').selectOption('native');
       return page;
     }
     const stored = page => page.evaluate(key => localStorage.getItem(key), storageKey);

@@ -11,6 +11,7 @@ const path = require('node:path');
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(process.env.COMPOSER_URL || 'http://127.0.0.1:8089/');
     await page.waitForFunction(() => !document.querySelector('[data-asset-id="expenses-icon"]').disabled);
+    await page.locator('[data-brand="expenses"]').click();
     const visible = selector => page.locator(selector).isVisible();
     assert.equal(await visible('#panel-create'), true);
     assert.equal(await visible('#panel-assets'), false);

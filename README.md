@@ -14,7 +14,7 @@ UI images now use small renditions; original brand artwork loads when inserted o
 
 ## Using the editor
 
-The matte black workspace has three areas: **Your library** on the left, the canvas in the center, and an **Inspector** on the right. Choose a brand using its name and mini icon, then open **Templates**. AURA shows daily covers and readings; Lumen shows fact posts. Each card opens its settings without generating artwork or fetching readings. Template cards show actual local renderer samples. Brands without templates offer a blank canvas and background upload instead.
+The matte black workspace has three areas: **Your library** on the left, the canvas in the center, and an **Inspector** on the right. AURA appears first and opens by default. Choose a brand using its name and mini icon, then open **Templates**. AURA shows daily covers and readings; Lumen shows fact posts. Each card opens its settings without generating artwork or fetching readings. Template cards show actual local renderer samples. Brands without templates offer a blank canvas and background upload instead.
 
 Choose a brand and open **Assets** for brand artwork, custom uploads, and Expenses tint controls. Text and layer tools live in the inspector, with navigation independent of the library. Selecting text on the canvas opens its text controls; selecting an image opens layer geometry. The header identifies the current canvas or generated post and shows its save state. Template text and settings survive tab changes, brand changes, and reloads in the same browser.
 

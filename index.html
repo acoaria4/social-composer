@@ -51,8 +51,8 @@
       <div class="workspace">
         <aside class="pane editor-pane" aria-label="Design controls">
           <div class="editor-navigation" id="library-navigation"><h2 class="pane-title">Your library</h2><nav class="brand-picker" aria-label="Choose a brand">
-            <button type="button" class="btn" data-brand="expenses" aria-pressed="true"><img src="assets/ui/expenses-brand.webp" width="20" height="20" alt="" draggable="false"><span>Expenses</span></button>
-            <button type="button" class="btn" data-brand="aura" aria-pressed="false"><img src="assets/ui/aura-brand.webp" width="20" height="20" alt="" draggable="false"><span>AURA</span></button>
+            <button type="button" class="btn" data-brand="aura" aria-pressed="true"><img src="assets/ui/aura-brand.webp" width="20" height="20" alt="" draggable="false"><span>AURA</span></button>
+            <button type="button" class="btn" data-brand="expenses" aria-pressed="false"><img src="assets/ui/expenses-brand.webp" width="20" height="20" alt="" draggable="false"><span>Expenses</span></button>
             <button type="button" class="btn" data-brand="lumen" aria-pressed="false"><img src="assets/ui/lumen-brand.webp" width="20" height="20" alt="" draggable="false"><span>Lumen</span></button>
             <button type="button" class="btn" data-brand="glitch" aria-pressed="false"><img src="assets/ui/glitchlabs-brand.webp" width="20" height="20" alt="" draggable="false"><span>gLitCh Labs</span></button>
           </nav>
@@ -77,7 +77,7 @@
           <input id="bg-input" type="file" accept="image/*" hidden />
 
 </div></details>
-<details class="horoscope-panel tool-section" data-brand-panel="aura" hidden aria-labelledby="aura-heading">
+<details class="horoscope-panel tool-section" data-brand-panel="aura" aria-labelledby="aura-heading">
             <summary id="aura-heading" class="brand-heading brand-aura">Daily horoscope<span>.</span></summary>
             <p class="pane-hint">Create a daily cover in the same color as your horoscope, or a story with all 12 Moon signs.</p>
             <details class="form-section tool-section"><summary id="settings-heading">Post settings</summary>
@@ -122,7 +122,7 @@
 
           <section id="panel-assets" role="tabpanel" aria-labelledby="tab-assets" tabindex="0" hidden>
             <p class="pane-hint">Click an asset to place it in the center, or drag it onto the canvas.</p>
-<details class="brand-group" data-brand-panel="expenses">
+<details class="brand-group" data-brand-panel="expenses" hidden>
             <summary class="brand-heading brand-expenses">Icons</summary>
             <div class="asset-grid" id="assets-expenses"></div>
             <div class="tint-panel" id="tint-panel" hidden>
@@ -166,7 +166,7 @@
               </div>
             </div>
           </details>
-<details class="brand-group" data-brand-panel="aura" hidden><summary class="brand-heading">Icons</summary><div class="asset-grid" id="assets-aura"></div></details>
+<details class="brand-group" data-brand-panel="aura"><summary class="brand-heading">Icons</summary><div class="asset-grid" id="assets-aura"></div></details>
 <details class="brand-group" data-brand-panel="lumen" hidden><summary class="brand-heading">Icons</summary><div class="asset-grid" id="assets-lumen"></div></details>
 <details class="brand-group" data-brand-panel="glitch" hidden><summary class="brand-heading">Icons</summary><div class="asset-grid" id="assets-glitch"></div></details>
 <details class="brand-group">
@@ -328,7 +328,7 @@
     <script src="js/document-model.js?v=performance-1"></script>
     <script src="js/asset-store.js?v=performance-1"></script>
     <script src="js/render-scheduler.js?v=performance-1"></script>
-    <script src="js/composer.js?v=performance-1"></script>
+    <script src="js/composer.js?v=aura-default-1"></script>
     <script src="js/horoscope-template.js?v=aura-cover-1"></script>
     <script src="js/lumen-template.js?v=lumen-centered-body-1"></script>
     <script src="js/lumen.js?v=matte-workspace-1"></script>

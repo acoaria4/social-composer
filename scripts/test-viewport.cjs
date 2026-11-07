@@ -6,6 +6,7 @@ const fs=require('node:fs');const path=require('node:path');
  try {
  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(process.env.COMPOSER_URL||'http://127.0.0.1:8089/');
+ await page.locator('[data-brand="expenses"]').click();await page.locator('#preset-select').selectOption('native');
  assert.equal(await page.locator('#zoom-in').isDisabled(),true);
  await page.locator('#btn-empty-blank').click();await page.waitForFunction(()=>!document.querySelector('#zoom-in').disabled);
  const rect=()=>page.locator('#stage-canvas').boundingBox();

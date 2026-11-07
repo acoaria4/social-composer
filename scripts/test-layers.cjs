@@ -16,6 +16,8 @@ const output = path.join(root, 'exports/sprint3/layers');
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(process.env.COMPOSER_URL || local.url);
     await page.waitForFunction(() => !document.querySelector('[data-asset-id="expenses-icon"]')?.disabled);
+    await page.locator('[data-brand="expenses"]').click();
+    await page.locator('#preset-select').selectOption('native');
     await page.locator('#btn-empty-blank').click();
     await page.waitForFunction(() => !document.querySelector('#btn-save').disabled);
     if (await page.locator('#btn-grid').getAttribute('aria-pressed') === 'true') await page.locator('#btn-grid').click();

@@ -20,10 +20,11 @@ const output = path.join(root, 'exports/sprint3/editing-session');
       page.on('pageerror', error => errors.push(error.message));
       await page.goto(url);
       await page.waitForFunction(() => !document.querySelector('[data-asset-id="expenses-icon"]')?.disabled);
+      await page.locator('[data-brand="expenses"]').click();
       return page;
     }
     const ready = page => page.waitForFunction(() => !document.querySelector('#btn-save').disabled);
-    async function blank(page) { await page.locator('#btn-empty-blank').click(); await ready(page); }
+    async function blank(page) { await page.locator('[data-brand="expenses"]').click(); await page.locator('#preset-select').selectOption('native'); await page.locator('#btn-empty-blank').click(); await ready(page); }
     async function addText(page, value) {
       await page.locator('#tab-text').click();
       await page.locator('#text-add').click();

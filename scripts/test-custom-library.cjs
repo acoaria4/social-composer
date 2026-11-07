@@ -23,6 +23,8 @@ const upload = { name: 'stamp.svg', mimeType: 'image/svg+xml', buffer: Buffer.fr
       page.on('pageerror', error => errors.push(error.message));
       await page.goto(process.env.COMPOSER_URL);
       await page.waitForFunction(() => !!document.querySelector('[data-asset-id="expenses-icon"]'));
+      await page.locator('[data-brand="expenses"]').click();
+      await page.locator('#preset-select').selectOption('native');
       await page.locator('#tab-assets').click();
       await page.locator('#panel-assets > details:not([data-brand-panel]) > summary').click();
       return page;

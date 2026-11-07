@@ -41,8 +41,8 @@ const pngSize = file => { const bytes = fs.readFileSync(path.resolve(__dirname, 
       await page.waitForFunction(() => !!document.querySelector('[data-asset-id="expenses-icon"]'));
       return page;
     }
-    async function blank(page) { await page.locator('#btn-empty-blank').click(); await page.waitForFunction(() => !document.querySelector('#btn-save').disabled); }
-    async function assets(page) { await page.locator('#tab-assets').click(); await page.locator('#panel-assets [data-brand-panel="expenses"]').evaluate(details => { details.open = true; }); }
+    async function blank(page) { await page.locator('[data-brand="expenses"]').click(); await page.locator('#preset-select').selectOption('native'); await page.locator('#btn-empty-blank').click(); await page.waitForFunction(() => !document.querySelector('#btn-save').disabled); }
+    async function assets(page) { await page.locator('[data-brand="expenses"]').click(); await page.locator('#tab-assets').click(); await page.locator('#panel-assets [data-brand-panel="expenses"]').evaluate(details => { details.open = true; }); }
     async function more(page, button) { if (!await page.locator('.more-actions').evaluate(details => details.open)) await page.locator('.more-actions > summary').click(); await page.locator(button).click(); }
     async function closeMore(page) { await page.locator('.more-actions').evaluate(details => { details.open = false; }); }
     async function project(page) {

@@ -18,6 +18,7 @@ const fs = require('node:fs');
     }
     await page.locator('#tab-text').click();
     assert.equal(await page.locator('#text-add').isDisabled(),true);
+    await page.locator('#preset-select').selectOption('native');
     await page.locator('#bg-input').setInputFiles(path.resolve(__dirname,'../brands/current/lumen-icon.png'));
     await page.waitForFunction(()=>!document.querySelector('#text-add').disabled);
     await page.locator('#preset-select').selectOption('1080x1350');

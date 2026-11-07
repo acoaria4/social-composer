@@ -27,6 +27,8 @@ const svgFile = (color, size = 120) => ({
       await page.route('https://aura-glitchlabs.fly.dev/**', route => route.abort());
       await page.goto(url);
       await page.waitForFunction(() => !!document.querySelector('[data-asset-id="expenses-icon"]'));
+      await page.locator('[data-brand="expenses"]').click();
+      await page.locator('#preset-select').selectOption('native');
       return page;
     }
     const pixel = (page, x = 10, y = 10) => page.locator('#stage-canvas').evaluate((canvas, point) => [...canvas.getContext('2d').getImageData(point.x, point.y, 1, 1).data], { x, y });
