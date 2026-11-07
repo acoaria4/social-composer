@@ -1,0 +1,39 @@
+{
+  "objective": "Fix the audited reliability issues and reorganize Social Composer around templates, canvas, and an inspector with a matte black theme.",
+  "delivery": "One verified, reviewable stage at a time, as requested by the user.",
+  "stages": [
+    {
+      "id": "1-trustworthy-saves",
+      "status": "complete",
+      "scope": ["Honest and persistent save errors", "No silent saved-design eviction", "Transactional save/remove UI updates", "Visible library limits"],
+      "acceptance": ["Failed storage writes leave stored and visible libraries unchanged", "A thirteenth save never deletes an earlier design", "Storage-budget failures preserve all saved work", "Failed removals retain the saved design and can be retried", "Existing save/restore, text, cover and export tests pass"],
+      "verification": {
+        "date": "2026-11-07",
+        "result": "passed",
+        "browser_suites": ["test-storage.cjs", "test-editor.cjs", "test-viewport.cjs", "test-text-boxes.cjs", "test-lumen.cjs", "test-lumen-formats.cjs", "test-horoscope.cjs", "test-horoscope-cover.cjs"],
+        "additional_checks": ["Independent source review", "Browser smoke with all storage reads and writes blocked", "390px persistent-message readability", "JavaScript syntax", "git diff --check"],
+        "evidence": "exports/storage/results.json"
+      }
+    },
+    {
+      "id": "2-safe-document-operations-and-exports",
+      "status": "pending",
+      "scope": ["Newest upload/restore/reset wins", "Preserve image transparency", "Protect supported AURA formats", "Validate actual text bounds", "Selection preserves stacking"]
+    },
+    {
+      "id": "3-recoverable-accessible-editing",
+      "status": "pending",
+      "scope": ["Undo/redo", "Draft recovery and save state", "Accessible mixed layer controls and geometry", "Project backup and template source persistence", "Separate grid visibility and snapping"]
+    },
+    {
+      "id": "4-matte-black-workspace",
+      "status": "pending",
+      "scope": ["Template-first creation", "Canvas-centered workspace", "Contextual inspector", "Document identity and saved-library drawer", "Matte black theme and consolidated UI tokens", "Mobile Edit/Preview workflow and reachable actions", "Sibling library controls and touch targets"]
+    },
+    {
+      "id": "5-performance-and-maintenance",
+      "status": "pending",
+      "scope": ["Thumbnail/favicon renditions and on-demand assets", "Document/persistence/interaction module boundaries", "Pinned development tooling and one test command", "CI and broader browser coverage", "Documentation and error-state cleanup", "Final polish and repeat audit"]
+    }
+  ]
+}

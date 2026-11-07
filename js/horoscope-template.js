@@ -83,5 +83,121 @@
     });
     return new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('Could not render the horoscope.')),'image/png'));
   }
-  window.AuraHoroscopeTemplate={signs,rasis,tamil,palettes,neutral,keys,palette,render};
+  function coverTextMetrics(context, text, font) {
+    context.font = font;
+    context.textAlign = 'left';
+    context.textBaseline = 'alphabetic';
+    const metrics = context.measureText(text);
+    return {
+      left: metrics.actualBoundingBoxLeft,
+      right: metrics.actualBoundingBoxRight,
+      ascent: metrics.actualBoundingBoxAscent,
+      descent: metrics.actualBoundingBoxDescent,
+    };
+  }
+
+  function drawCoverText(context, text, font, color, centerX, baseline, maxWidth) {
+    const metrics = coverTextMetrics(context, text, font);
+    if (metrics.left + metrics.right > maxWidth) {
+      throw new Error('The cover text does not fit. Please reload the local fonts and retry.');
+    }
+    context.fillStyle = color;
+    // Center the visible letterforms, including the day number's asymmetric bearings.
+    context.fillText(text, centerX + (metrics.left - metrics.right) / 2, baseline);
+  }
+
+  function drawCoverDate(context, lines, centerX, centerY) {
+    const gap = 18;
+    const holeRadius = 174;
+    let height = 0;
+    const measured = lines.map(line => {
+      const metrics = coverTextMetrics(context, line.text, line.font);
+      const item = { ...line, metrics, top: height };
+      height += metrics.ascent + metrics.descent + gap;
+      return item;
+    });
+    height -= gap;
+
+    for (const line of measured) {
+      const top = centerY - height / 2 + line.top;
+      const bottom = top + line.metrics.ascent + line.metrics.descent;
+      const halfWidth = (line.metrics.left + line.metrics.right) / 2;
+      const farthestY = Math.max(Math.abs(top - centerY), Math.abs(bottom - centerY));
+      if (Math.hypot(halfWidth, farthestY) > holeRadius) {
+        throw new Error('The cover date does not fit inside the zodiac wheel. Please reload the local fonts and retry.');
+      }
+      drawCoverText(context, line.text, line.font, line.color, centerX, top + line.metrics.ascent, holeRadius * 2);
+    }
+  }
+
+  async function renderCover({ date, language = 'ta' } = {}, colors = neutral) {
+    const readingDate = typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)
+      ? new Date(`${date}T12:00:00Z`) : null;
+    if (!readingDate || !Number.isFinite(readingDate.getTime()) || readingDate.toISOString().slice(0, 10) !== date) {
+      throw new Error('Choose a valid reading date for the cover.');
+    }
+    if (!['ta', 'en'].includes(language)) throw new Error('Choose Tamil or English for the cover.');
+
+    const isTamil = language === 'ta';
+    const family = isTamil ? 'Noto Sans Tamil' : 'DM Sans';
+    const locale = isTamil ? 'ta-IN' : 'en-IN';
+    const monthYear = new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(readingDate);
+    const weekday = new Intl.DateTimeFormat(locale, { weekday: 'long', timeZone: 'UTC' }).format(readingDate);
+    const title = isTamil ? ['இன்றைய', 'ராசிபலன்'] : ['Your daily', 'horoscope'];
+    const firstTitleFont = `600 76px "${family}"`;
+    const secondTitleFont = `700 92px "${family}"`;
+    const monthFont = `500 30px "${family}"`;
+    const weekdayFont = `500 34px "${family}"`;
+    const dayFont = '500 144px "Cormorant Garamond"';
+    const [background, ornament, wordmark] = await Promise.all([
+      loadImage(`background-${colors[4] || 'none'}.png`),
+      loadImage('zodiac-cover-ring.png'),
+      loadImage('../../brands/current/aura-wordmark-dark.png'),
+      document.fonts.load(firstTitleFont, title[0]),
+      document.fonts.load(secondTitleFont, title[1]),
+      document.fonts.load(monthFont, monthYear),
+      document.fonts.load(weekdayFont, weekday),
+      document.fonts.load(dayFont, date.slice(-2)),
+    ]);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 1080;
+    canvas.height = 1920;
+    const context = canvas.getContext('2d');
+    context.drawImage(background, 0, 0, 1080, 1920);
+
+    const wordmarkWidth = 178;
+    context.save();
+    context.globalAlpha = 0.86;
+    context.drawImage(wordmark, (1080 - wordmarkWidth) / 2, 310, wordmarkWidth, wordmarkWidth * wordmark.height / wordmark.width);
+    context.restore();
+    drawCoverText(context, title[0], firstTitleFont, colors[3], 540, 440, 720);
+    drawCoverText(context, title[1], secondTitleFont, colors[2], 540, 550, 720);
+
+    context.save();
+    // The generated ornament has a soft outer halo; keep it circular over the day plate.
+    context.beginPath();
+    context.arc(540, 1020, 386, 0, Math.PI * 2);
+    context.clip();
+    context.shadowColor = 'rgba(97,66,34,.07)';
+    context.shadowBlur = 9;
+    context.shadowOffsetY = 3;
+    context.drawImage(ornament, 140, 620, 800, 800);
+    context.restore();
+    context.fillStyle = 'rgba(255,251,242,.54)';
+    context.beginPath();
+    context.arc(540, 1020, 188, 0, Math.PI * 2);
+    context.fill();
+    drawCoverDate(context, [
+      { text: date.slice(-2), font: dayFont, color: '#695038' },
+      { text: monthYear, font: monthFont, color: '#4b443d' },
+      { text: weekday, font: weekdayFont, color: colors[3] },
+    ], 540, 1020);
+
+    return new Promise((resolve, reject) => canvas.toBlob(blob => blob
+      ? resolve(blob)
+      : reject(new Error('Could not render the horoscope cover.')), 'image/png'));
+  }
+
+  window.AuraHoroscopeTemplate={signs,rasis,tamil,palettes,neutral,keys,palette,render,renderCover};
 })();

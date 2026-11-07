@@ -61,7 +61,7 @@
 </div></details>
 <details class="horoscope-panel tool-section" data-brand-panel="aura" hidden aria-labelledby="aura-heading">
             <summary id="aura-heading" class="brand-heading brand-aura">Daily horoscope<span>.</span></summary>
-            <p class="pane-hint">All 12 Moon signs in one story. Paste your readings or fetch them from AURA.</p>
+            <p class="pane-hint">Create a daily cover in the same color as your horoscope, or a story with all 12 Moon signs.</p>
             <details class="form-section tool-section"><summary id="settings-heading">Post settings</summary>
             <label class="horoscope-field">Reading source <select id="horoscope-source"><option value="manual" selected>Manual entry</option><option value="api">Fetch from AURA API</option></select></label>
             <p hidden id="horoscope-api-status" class="api-status" data-state="checking" role="status" aria-live="polite">Checking API…</p>
@@ -85,7 +85,9 @@
             <p hidden id="horoscope-context" class="pane-hint" lang="ta"></p>
             <p id="horoscope-palette" class="pane-hint"></p>
             <button id="horoscope-create" type="button" class="btn btn-primary">Create horoscope</button>
+            <button id="horoscope-cover" type="button" class="btn btn-ghost">Create cover</button>
             <button id="horoscope-blank" type="button" class="btn btn-ghost">Blank horoscope template</button>
+            <p class="pane-hint">Covers use the selected date, language, and post color. Readings are optional for a cover.</p>
             <p id="horoscope-status" class="pane-hint" role="status" aria-live="polite">Choose a date to create a 1080 × 1920 story.</p>
 </details>
 <details class="lumen-fact-panel tool-section" data-brand-panel="lumen" hidden aria-labelledby="lumen-fact-heading">
@@ -268,7 +270,9 @@
         <aside id="pane-created" class="pane pane-created is-collapsed" aria-label="Saved designs" hidden>
           <div id="pane-created-body" class="pane-created-body">
             <div class="saved-heading"><h2 class="pane-created-heading">Saved designs</h2><button id="btn-close-saved" class="btn" type="button" aria-label="Close saved designs">×</button></div>
-            <p class="pane-hint">Saved in this browser only. Download a PNG to keep a file.</p>
+            <p class="pane-hint">Saved in this browser only. Up to 12 designs, subject to available storage. New saves never remove older designs. Download a PNG to keep a file.</p>
+            <p id="created-usage" class="pane-hint">0 of 12 saved designs</p>
+            <p id="created-status" class="pane-hint" role="status" aria-live="polite" aria-atomic="true" hidden></p>
             <div class="asset-grid" id="assets-created"></div>
             <p id="created-empty" class="pane-hint">Your saved designs will appear here. Select one to restore and edit.</p>
           </div>
@@ -277,10 +281,10 @@
     </div>
     <script src="js/text-boxes.js?v=preview-zoom-1"></script>
     <script src="js/viewport.js?v=preview-zoom-1"></script>
-    <script src="js/composer.js?v=lumen-shared-size-1"></script>
-    <script src="js/horoscope-template.js?v=preview-zoom-1"></script>
+    <script src="js/composer.js?v=safe-saves-1"></script>
+    <script src="js/horoscope-template.js?v=aura-cover-1"></script>
     <script src="js/lumen-template.js?v=lumen-centered-body-1"></script>
     <script src="js/lumen.js?v=lumen-shared-size-1"></script>
-    <script src="js/horoscope.js?v=preview-zoom-1"></script>
+    <script src="js/horoscope.js?v=aura-cover-1"></script>
   </body>
 </html>

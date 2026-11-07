@@ -63,6 +63,8 @@
     createdToggle: document.getElementById("btn-created-toggle"),
     createdGrid: document.getElementById("assets-created"),
     createdEmpty: document.getElementById("created-empty"),
+    createdStatus: document.getElementById("created-status"),
+    createdUsage: document.getElementById("created-usage"),
     tintHex: document.getElementById("tint-hex"),
     tintR: document.getElementById("tint-r"),
     tintG: document.getElementById("tint-g"),
@@ -97,6 +99,7 @@
     /** @type {HTMLImageElement | null} */
     bgImage: null,
     postDate: null,
+    auraPostType: null,
     templateBrand: null,
     /** canvas pixel size (export space) */
     width: 0,
@@ -392,6 +395,7 @@
   function resetSession() {
     state.bgImage = null;
     state.postDate = null;
+    state.auraPostType = null;
     state.templateBrand = null;
     state.overlays = [];
     state.selectedId = null;
@@ -432,6 +436,7 @@
     if (!beforeApply()) return false;
     state.bgImage = img;
     state.postDate = null;
+    state.auraPostType = null;
     state.templateBrand = null;
     state.overlays = [];
     state.selectedId = null;
@@ -658,7 +663,7 @@
     const preset = currentPreset();
     const slug = preset ? preset.slug : "native";
     const filename = state.postDate
-      ? `aura-daily-horoscope-${state.postDate}-${state.width}x${state.height}.png`
+      ? `aura-daily-${state.auraPostType === "cover" ? "cover" : "horoscope"}-${state.postDate}-${state.width}x${state.height}.png`
       : state.templateBrand === "lumen" ? `lumen-fact-${state.width}x${state.height}.png`
       : `glitch-compose-${slug}-${state.width}x${state.height}.png`;
     out.toBlob((blob) => {
@@ -728,6 +733,7 @@
     if (!c) return n;
     n += c.bgDataUrl?.length || 0;
     n += c.presetKey?.length || 0;
+    n += c.auraPostType?.length || 0;
     n += c.tintHex?.length || 0;
     n += JSON.stringify(c.textStyles || {}).length;
     for (const url of Object.values(c.assetDataUrls || {})) {
@@ -743,12 +749,25 @@
     return state.createdPics.reduce((sum, a) => sum + entryEncodedBytes(a), 0);
   }
 
-  function saveCreatedPics() {
+  function saveCreatedPics(pics = state.createdPics) {
     try {
-      localStorage.setItem(CREATED_STORAGE_KEY, JSON.stringify(state.createdPics));
-    } catch (err) {
-      els.meta.textContent = "Could not save created pics in this browser";
+      localStorage.setItem(CREATED_STORAGE_KEY, JSON.stringify(pics));
+      return true;
+    } catch {
+      return false;
     }
+  }
+
+  function reportCreatedStatus(message, status = "error") {
+    if (els.createdStatus) {
+      els.createdStatus.textContent = message;
+      els.createdStatus.dataset.state = status;
+      els.createdStatus.hidden = false;
+    }
+    els.meta.textContent = message;
+    state.createdPaneOpen = true;
+    saveCreatedPaneOpen();
+    syncCreatedPane();
   }
 
   function isValidComposition(c) {
@@ -791,6 +810,7 @@
             bgDataUrl: a.composition.bgDataUrl,
             templateBrand: a.composition.templateBrand === "lumen" ? "lumen" : null,
             postDate: /^\d{4}-\d{2}-\d{2}$/.test(a.composition.postDate || "") ? a.composition.postDate : null,
+            auraPostType: a.composition.auraPostType === "cover" ? "cover" : null,
             presetKey:
               typeof a.composition.presetKey === "string"
                 ? a.composition.presetKey
@@ -836,7 +856,7 @@
       bgDataUrl = sourceToDataUrl(state.bgImage, "image/jpeg", 0.88);
       thumbDataUrl = makeThumbDataUrl();
     } catch (err) {
-      els.meta.textContent = err.message || "Could not encode composition";
+      reportCreatedStatus("Save failed: this design could not be prepared for browser storage. Try Download PNG to keep an image file.");
       return;
     }
 
@@ -852,6 +872,7 @@
       composition: {
         bgDataUrl,
         postDate: state.postDate,
+        auraPostType: state.auraPostType,
         templateBrand: state.templateBrand,
         presetKey: state.presetKey || "native",
         tintHex: state.tintHex || DEFAULT_TINT_HEX,
@@ -871,34 +892,40 @@
 
     const entryBytes = entryEncodedBytes(entry);
     if (entryBytes > CREATED_MAX_BYTES) {
-      els.meta.textContent = "Composition too large for browser storage";
+      reportCreatedStatus("This design is too large for the saved-design library. Use Download PNG to keep an image file.");
       return;
     }
 
-    while (
-      state.createdPics.length >= CREATED_MAX_COUNT ||
-      createdEncodedBytes() + entryBytes > CREATED_MAX_BYTES
-    ) {
-      if (!state.createdPics.length) {
-        els.meta.textContent = "Composition too large for browser storage";
-        return;
-      }
-      state.createdPics.shift();
+    if (state.createdPics.length >= CREATED_MAX_COUNT) {
+      reportCreatedStatus(`The saved-design library is full (${CREATED_MAX_COUNT} designs maximum). Remove a saved design and retry, or use Download PNG. Your existing saves were kept.`);
+      return;
+    }
+    if (createdEncodedBytes() + entryBytes > CREATED_MAX_BYTES) {
+      reportCreatedStatus("The saved-design library has reached its storage limit. Remove a saved design and retry, or use Download PNG. Your existing saves were kept.");
+      return;
     }
 
-    state.createdPics.push(entry);
-    saveCreatedPics();
+    const nextPics = [...state.createdPics, entry];
+    if (!saveCreatedPics(nextPics)) {
+      reportCreatedStatus("Save failed: browser storage is full or unavailable. Your existing saves were kept. Use Download PNG to keep an image file, or free some storage and retry.");
+      return;
+    }
+    state.createdPics = nextPics;
     renderCreatedPane();
-    state.createdPaneOpen = true;
-    saveCreatedPaneOpen();
-    syncCreatedPane();
-    els.meta.textContent = `Saved “${entry.label}” in this browser`;
+    reportCreatedStatus(`Saved “${entry.label}” in this browser.`, "success");
   }
 
   function removeCreatedPic(id) {
-    state.createdPics = state.createdPics.filter((p) => p.id !== id);
-    saveCreatedPics();
+    const pic = state.createdPics.find(p => p.id === id);
+    if (!pic) return;
+    const nextPics = state.createdPics.filter(p => p.id !== id);
+    if (!saveCreatedPics(nextPics)) {
+      reportCreatedStatus("Remove failed: browser storage is unavailable. The saved design was kept. Retry when storage is available.");
+      return;
+    }
+    state.createdPics = nextPics;
     renderCreatedPane();
+    reportCreatedStatus(`Removed “${pic.label}” from this browser.`, "success");
   }
 
   async function restoreComposition(pic) {
@@ -947,6 +974,7 @@
 
       state.bgImage = bg;
       state.postDate = comp.postDate || null;
+      state.auraPostType = comp.auraPostType === "cover" ? "cover" : null;
       state.templateBrand = comp.templateBrand === "lumen" ? "lumen" : null;
       state.presetKey =
         Object.prototype.hasOwnProperty.call(PRESETS, comp.presetKey)
@@ -1016,6 +1044,9 @@
     }
     if (els.createdEmpty) {
       els.createdEmpty.hidden = state.createdPics.length > 0;
+    }
+    if (els.createdUsage) {
+      els.createdUsage.textContent = `${state.createdPics.length} of ${CREATED_MAX_COUNT} saved designs`;
     }
   }
 
@@ -1526,7 +1557,7 @@
 
   // Shared canvas pipeline: template posts retain normal placement, saving and export.
   window.auraComposer = {
-    async setHoroscope(blob, date, isCurrent = () => true) {
+    async setHoroscope(blob, date, isCurrent = () => true, postType = "horoscope") {
       const applied = await setBackground(blob, () => {
         if (!isCurrent()) return false;
         state.presetKey = "1080x1920";
@@ -1537,6 +1568,7 @@
       });
       if (!applied) return false;
       state.postDate = date;
+      state.auraPostType = postType === "cover" ? "cover" : "horoscope";
       return true;
     }
   };

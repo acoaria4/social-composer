@@ -27,6 +27,8 @@
   const typography = () => ({readingFontSize:fontSize.valueAsNumber, readingFontWeight:Number(fontWeight.value)});
   const theme = document.getElementById('horoscope-theme');
   const button = document.getElementById('horoscope-create');
+  const coverButton = document.getElementById('horoscope-cover');
+  const blankButton = document.getElementById('horoscope-blank');
   const status = document.getElementById('horoscope-status');
   const paletteLabel = document.getElementById('horoscope-palette');
   const apiStatus = document.getElementById('horoscope-api-status');
@@ -78,23 +80,43 @@
   }
   document.querySelector('[data-brand="aura"]').addEventListener('click', checkApi);
   document.querySelectorAll('[data-brand]:not([data-brand="aura"])').forEach(button => {
-    button.addEventListener('click', () => {
-      if (!request) {apiRevision++;apiController?.abort();apiController=null;}
-    });
+    button.addEventListener('click', update);
   });
   let request = null;
   let revision = 0;
   dateInput.value = new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   function palette() { return template.palette(theme.value, dateInput.value); }
-  function update() {
+
+  function resetButtons() {
+    button.disabled = false;
+    button.textContent = 'Create horoscope';
+    coverButton.disabled = false;
+    coverButton.textContent = 'Create cover';
+    blankButton.disabled = false;
+    blankButton.textContent = 'Blank horoscope template';
+  }
+
+  // All artwork actions share one revision so a previous request or render
+  // cannot replace the result of a later cover, blank, or horoscope action.
+  function cancelWork() {
     revision++;
     apiRevision++;
     apiController?.abort();
     apiController = null;
     request?.abort();
     request = null;
-    button.disabled = false;
-    button.textContent = 'Create horoscope';
+    resetButtons();
+    return revision;
+  }
+
+  function finishWork(version) {
+    if (version !== revision) return;
+    resetButtons();
+    request = null;
+  }
+
+  function update() {
+    cancelWork();
     const manual = source.value === 'manual';
     manualPanel.hidden = !manual;
     apiStatus.hidden = manual;
@@ -109,7 +131,7 @@
     const colors = palette();
     paletteLabel.textContent = colors[0];
     paletteLabel.style.setProperty('--day-accent', colors[3]);
-    status.textContent = 'Create to apply this date, color, and text style. Any existing canvas stays unchanged until ready.';
+    status.textContent = 'Create a cover or horoscope to apply your settings. Any existing canvas stays unchanged until ready.';
   }
   source.addEventListener('change', () => {update();checkApi();});
   dateInput.addEventListener('change', () => {update();checkApi();});
@@ -135,10 +157,34 @@
     return {...data, ordered};
   }
   const render = template.render;
-  document.getElementById('horoscope-blank').addEventListener('click', async () => {
+  coverButton.addEventListener('click', async () => {
     if (!dateInput.reportValidity()) return;
-    const version=++revision, day=dateInput.value,lang=language.value;
-    request?.abort();request=null;apiRevision++;apiController?.abort();apiController=null;button.disabled=false;button.textContent='Create horoscope';
+    const version = cancelWork();
+    const day = dateInput.value, lang = language.value, colors = palette();
+    request = new AbortController();
+    coverButton.disabled = true;
+    coverButton.textContent = 'Creating cover…';
+    context.textContent = '';
+    status.textContent = 'Preparing your daily cover…';
+    try {
+      const blob = await template.renderCover({date:day, language:lang}, colors);
+      if (version !== revision) return;
+      if (!await window.auraComposer.setHoroscope(blob, day, () => version === revision, 'cover')) return;
+      status.textContent = `Cover ready: ${day} · ${colors[0]} · ${lang === 'ta' ? 'தமிழ்' : 'English'}. Save or Download PNG to keep it.`;
+    } catch (error) {
+      if (version === revision) status.textContent = error.message;
+    } finally {
+      finishWork(version);
+    }
+  });
+  blankButton.addEventListener('click', async () => {
+    if (!dateInput.reportValidity()) return;
+    const version=cancelWork(), day=dateInput.value,lang=language.value;
+    request = new AbortController();
+    blankButton.disabled = true;
+    blankButton.textContent = 'Creating blank template…';
+    context.textContent = '';
+    status.textContent = 'Preparing your blank horoscope template…';
     try {
       const blob=await render({date:day,language:lang},palette(),{blank:true});
       if(version!==revision)return;
@@ -146,9 +192,11 @@
       context.textContent='';
       status.textContent='Blank template ready. Add your own readings below each sign name. Download PNG to export.';
     } catch(error) {if(version===revision)status.textContent=error.message;}
+    finally {finishWork(version);}
   });
   button.addEventListener('click', async()=>{
     if(!dateInput.reportValidity() || !fontSize.reportValidity())return;
+    const version = cancelWork();
     const manual = source.value === 'manual';
     if (manual) {
       const missing = fields.find(({input}) => !input.value.trim());
@@ -160,10 +208,10 @@
         return;
       }
     }
-    const day=dateInput.value,lang=language.value,colors=palette(),version=++revision;
+    const day=dateInput.value,lang=language.value,colors=palette();
     const textStyle = typography();
     const manualData = {date:day, language:lang, ordered:fields.map(({input}, i)=>({name:SIGNS[i], text:input.value.trim()}))};
-    request?.abort();const controller=new AbortController();request=controller;
+    const controller=new AbortController();request=controller;
     button.disabled=true;button.textContent=manual?'Creating horoscope…':'Loading AURA…';status.textContent=manual?'Preparing your 12 readings…':`Fetching all 12 readings for ${day}…`;
     try {
       const data=manual ? manualData : await fetchReadings(day, lang, controller.signal);
@@ -177,7 +225,7 @@
       if(version!==revision)return;
       status.textContent=error.name==='AbortError' ? 'AURA took too long to respond. Please retry. The canvas is unchanged.' : !manual && error instanceof TypeError ? 'Could not reach AURA. Check your connection and that the API allows this website. The canvas is unchanged.' : error.message;
     } finally {
-      if(version===revision){button.disabled=false;button.textContent='Create horoscope';request=null;}
+      finishWork(version);
     }
   });
 })();

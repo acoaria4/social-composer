@@ -26,6 +26,10 @@ Zoom affects only the preview, with no changes to artwork coordinates, saved des
 
 Use **Save design** to keep an editable composition in this browser and **Saved designs** to restore it. These saves are local to the browser and site origin; **Download PNG** creates a separate image file.
 
+The saved-design library holds up to twelve designs within its storage budget. A new save never removes an older design. If the library or browser storage is full, the Saved designs panel explains the problem and offers recovery steps; Download PNG remains available. Save and Remove update the visible library only after browser storage confirms the change. A failed write keeps the existing library intact.
+
+Run `node scripts/test-storage.cjs` with Playwright available through `NODE_PATH` and Chrome installed to check failed writes, full-library retention, storage-budget limits, removal retry, and save/reload. It starts a local static server unless `COMPOSER_URL` is set. Review artifacts go to `exports/storage/`.
+
 With Playwright available through `NODE_PATH` and local Chrome installed, run `node scripts/test-editor.cjs` to check keyboard navigation, drafts, asset editing, uploads, saving/restoring, export, validation, and layouts at 390, 860, and 1440 px. Set `COMPOSER_URL` when using a different local port. Screenshots are written to `exports/editor/`.
 
 ## Publishing
@@ -88,3 +92,11 @@ With a local server on port 8089 and Playwright available through `NODE_PATH`:
 - `node scripts/render-horoscope.cjs` exports Tamil editorial samples and blanks for all eight backgrounds, with a comparison sheet and phone-sized/simulated Reels previews. Set `HOROSCOPE_LANGUAGE=en` for English. These samples are illustrative layout previews, not live forecasts. Pass `HOROSCOPE_DATA=/path/to/api-response.json` to render a saved actual Tamil or English API edition instead; optional `readingFontSize` and `readingFontWeight` fields set the shared typography for that export.
 
 Exports are local review artifacts under `exports/daily-horoscope/` and are not committed.
+
+### Daily covers
+
+Choose the date, language, and Post color, then select **Create cover** for a 1080 × 1920 cover in the same colors as the reading post. It works with empty reading fields and does not fetch readings. The sculpted gold zodiac wheel sits below the title; the day number, localized month/year, and weekday are centered together inside it. The title and wheel start higher on the artwork to fill the upper area.
+
+The cover uses local background plates, a reusable zodiac ornament, and separately rendered text. Reading text size and weight do not affect it. Changing settings or switching brands cancels pending creation; creating a cover also cancels any earlier reading request. Save design retains its cover identity, including after reloading. Downloaded covers use `aura-daily-cover-YYYY-MM-DD-1080x1920.png`; older reading saves keep their original filename behavior.
+
+Run `node scripts/test-horoscope-cover.cjs` with Playwright available through `NODE_PATH` and Chrome installed. It starts its own local static server unless `COMPOSER_URL` is set, checks cover generation, date alignment, all day palettes and both languages, cancellation, save/restore, export, and mobile layout, and writes previews to `exports/aura-cover-final/`.

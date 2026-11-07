@@ -1,4 +1,5 @@
-const {chromium}=require('playwright');const assert=require('node:assert/strict');
+const {chromium}=require('playwright');const assert=require('node:assert/strict');const path=require('node:path');
+const reviewDir=path.resolve(__dirname,'../exports/daily-horoscope');
 (async()=>{const browser=await chromium.launch({channel:'chrome',headless:true});try{
  let apiCalls=0;
  const page=await browser.newPage({viewport:{width:1280,height:900}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -32,8 +33,8 @@ const {chromium}=require('playwright');const assert=require('node:assert/strict'
  await range.fill('36');assert.equal(await size.inputValue(),'36');await weight.selectOption('700');await create();
  await size.fill('30');await weight.selectOption('600');await create();assert.equal(await canvas(),manualImage);
 
- const fs=require('node:fs');fs.mkdirSync('/tmp/aura-manual-review',{recursive:true});
- const manualDownload=page.waitForEvent('download');await page.locator('#btn-download').click();await (await manualDownload).saveAs('/tmp/aura-manual-review/tamil-story.png');
+ const fs=require('node:fs');fs.mkdirSync(reviewDir,{recursive:true});
+ const manualDownload=page.waitForEvent('download');await page.locator('#btn-download').click();await (await manualDownload).saveAs(path.join(reviewDir,'tamil-story.png'));
  await fields.first().fill(sample.repeat(30));await page.locator('#horoscope-create').click();await page.waitForFunction(()=>document.querySelector('#horoscope-status').textContent.includes('No text was cut'));assert.equal(await canvas(),manualImage);await fields.first().fill(sample);
  await page.locator('[data-brand="lumen"]').click();await page.locator('[data-brand="aura"]').click();
  await page.locator('#horoscope-language').selectOption('en');assert.equal(await page.locator('#horoscope-readings label').first().innerText(),'Mesham');await page.locator('#horoscope-language').selectOption('ta');
@@ -90,8 +91,8 @@ const {chromium}=require('playwright');const assert=require('node:assert/strict'
    return {minimumContrast:Math.min(...contrasts)};
  });assert.ok(typographyChecks.minimumContrast>=4.5);
  const overflow=await page.evaluate(async()=>{try{const t=window.AuraHoroscopeTemplate;await t.render({date:'2026-09-21',ordered:t.signs.map(name=>({name,text:'Long summary '.repeat(80)})),disclaimer:'Context'},t.neutral);return false}catch(e){return /No text was cut/.test(e.message)}});assert.equal(overflow,true);
- await page.setViewportSize({width:390,height:844});await fields.first().scrollIntoViewIfNeeded();await page.screenshot({path:'/tmp/aura-manual-review/mobile.png'});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);
- await page.setViewportSize({width:1280,height:900});await page.locator('#horoscope-source').scrollIntoViewIfNeeded();await page.screenshot({path:'/tmp/aura-manual-review/desktop.png'});
+ await page.setViewportSize({width:390,height:844});await fields.first().scrollIntoViewIfNeeded();await page.screenshot({path:path.join(reviewDir,'mobile.png')});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);
+ await page.setViewportSize({width:1280,height:900});await page.locator('#horoscope-source').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(reviewDir,'desktop.png')});
  console.log('Minimum name contrast:',typographyChecks.minimumContrast.toFixed(2));
  console.log('PASS: shared size/weight, invalid values, long Tamil at 18px, name contrast, manual default, Tamil sample, missing/overflow validation, draft retention, API failures/cancellation, API-fed render, all nine selections, date-independent tints, blank templates, PNG export, overflow guard, mobile width.');
 }finally{await browser.close()}})();
