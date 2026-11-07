@@ -87,6 +87,9 @@ textarea { display: block; resize: vertical; line-height: 1.7; }
 .workspace { display: grid; grid-template-columns: var(--pane-w) minmax(0, 1fr) var(--inspector-w); align-items: stretch; gap: 12px; flex: 1; min-height: 0; }
 .pane { min-width: 0; min-height: 0; overflow: auto; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
 .editor-pane, .inspector-pane { display: flex; flex-direction: column; gap: 18px; scroll-padding-block: 18px; }
+@media (min-width: 1000px) {
+  .editor-pane { scrollbar-gutter: stable; }
+}
 .editor-navigation, #library-navigation { flex: none; }
 .pane-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .pane-heading h2, .inspector-pane > h2 { margin: 0; font-size: 17px; font-weight: 650; }
