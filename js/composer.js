@@ -133,6 +133,19 @@
   let idSeq = 1;
   let customSeq = 1;
   let createdSeq = 1;
+  let documentRevision = 0;
+
+  function beginDocumentOperation(owner = "editor") {
+    const ticket = ++documentRevision;
+    document.dispatchEvent(new CustomEvent("composer:document-operation", { detail: { owner } }));
+    return ticket;
+  }
+
+  function currentDocumentOperation(ticket) {
+    return ticket === documentRevision;
+  }
+
+  window.ComposerDocument = { begin: beginDocumentOperation, isCurrent: currentDocumentOperation };
 
   function nextId() {
     return `ov-${idSeq++}`;
@@ -366,12 +379,18 @@
     const hasBg = Boolean(state.bgImage);
     els.empty.hidden = hasBg;
     const lumenPost = hasBg && state.templateBrand === "lumen";
-    els.preset.disabled = false;
-    const lumenLayout = lumenPost || (lumenActive() && !hasBg);
-    els.preset.querySelector('option[value="native"]').disabled = lumenLayout;
-    document.getElementById("lumen-format-guidance").hidden = !lumenLayout;
+    const auraLayout = hasBg && Boolean(state.postDate) && !lumenActive();
+    els.preset.disabled = auraLayout;
+    const lumenLayout = lumenPost || (lumenActive() && (!hasBg || Boolean(state.postDate)));
+    els.preset.querySelector('option[value="native"]').disabled = lumenLayout || auraLayout;
+    const formatGuidance = document.getElementById("lumen-format-guidance");
+    formatGuidance.hidden = !(lumenLayout || auraLayout);
+    formatGuidance.textContent = auraLayout
+      ? "AURA covers and readings use Story / Reel · 9:16 · 1080×1920. Start a blank canvas or upload a background to use other sizes."
+      : "Choose Canvas size above, then select Create Lumen post to apply the layout.";
     textTools?.sync();
-    const textOutside = state.overlays.some(o => o.type === "text" && (o.x < 0 || o.y < 0 || o.x + o.width > state.width || o.y + o.height > state.height));
+    const textOverflow = state.overlays.filter(o => o.type === "text").map(o => window.ComposerText.overflow(o, state.width, state.height)).find(Boolean);
+    const textOutside = Boolean(textOverflow);
     els.download.disabled = !hasBg || !state.textReady || textOutside;
     if (els.save) els.save.disabled = !hasBg || !state.textReady;
     els.clear.disabled = !hasBg || state.overlays.length === 0;
@@ -389,10 +408,13 @@
       state.overlays.length === 0
         ? "no marks"
         : `${state.overlays.filter(o => o.type !== "text").length} marks · ${state.overlays.filter(o => o.type === "text").length} text boxes`;
-    els.meta.textContent = textOutside ? "Text extends outside the canvas. Adjust the boxes in Text to enable PNG export." : `${mode} · export ${state.width}×${state.height} · ${marks}`;
+    els.meta.textContent = textOverflow === "width"
+      ? "A text box is too narrow for its text. Widen it or reduce the shared font size to enable PNG export."
+      : textOutside ? "Text extends outside the canvas. Adjust the boxes in Text to enable PNG export." : `${mode} · export ${state.width}×${state.height} · ${marks}`;
   }
 
   function resetSession() {
+    beginDocumentOperation();
     state.bgImage = null;
     state.postDate = null;
     state.auraPostType = null;
@@ -431,13 +453,21 @@
     });
   }
 
-  async function setBackground(file, beforeApply = () => true) {
-    const img = await loadImageFromFile(file);
-    if (!beforeApply()) return false;
+  async function setBackground(file, beforeApply = null, ticket = beginDocumentOperation(), metadata = {}) {
+    let img;
+    try {
+      img = await loadImageFromFile(file);
+    } catch (error) {
+      if (!currentDocumentOperation(ticket)) return false;
+      throw error;
+    }
+    if (!currentDocumentOperation(ticket)) return false;
+    if (beforeApply && !beforeApply()) return false;
+    if (!beforeApply) state.presetKey = els.preset.value;
     state.bgImage = img;
-    state.postDate = null;
-    state.auraPostType = null;
-    state.templateBrand = null;
+    state.postDate = metadata.postDate || null;
+    state.auraPostType = metadata.auraPostType || null;
+    state.templateBrand = metadata.templateBrand || null;
     state.overlays = [];
     state.selectedId = null;
     recomputeCanvasSize();
@@ -513,13 +543,6 @@
     };
   }
 
-  function bringToFront(id) {
-    const idx = state.overlays.findIndex((o) => o.id === id);
-    if (idx < 0) return;
-    const [ov] = state.overlays.splice(idx, 1);
-    state.overlays.push(ov);
-  }
-
   function deleteSelected() {
     if (!state.selectedId) return;
     state.overlays = state.overlays.filter((o) => o.id !== state.selectedId);
@@ -529,7 +552,6 @@
 
   function startMove(ov, cx, cy) {
     if (ov.type === "text") selectEditorTab(document.getElementById("tab-text"));
-    bringToFront(ov.id);
     state.selectedId = ov.id;
     state.interaction = {
       type: "move",
@@ -543,7 +565,6 @@
   }
 
   function startScale(ov, handle, cx, cy) {
-    bringToFront(ov.id);
     state.selectedId = ov.id;
     state.interaction = {
       type: "scale",
@@ -676,15 +697,33 @@
     }, "image/png");
   }
 
-  function sourceToDataUrl(source, type = "image/png", quality) {
+  function canvasFromSource(source, willReadFrequently = false) {
     const w = source.naturalWidth || source.width;
     const h = source.naturalHeight || source.height;
     if (!w || !h) throw new Error("Invalid image source");
     const c = document.createElement("canvas");
     c.width = w;
     c.height = h;
-    c.getContext("2d").drawImage(source, 0, 0);
+    c.getContext("2d", { willReadFrequently }).drawImage(source, 0, 0);
+    return c;
+  }
+
+  function sourceToDataUrl(source, type = "image/png", quality) {
+    const c = canvasFromSource(source);
     return quality != null ? c.toDataURL(type, quality) : c.toDataURL(type);
+  }
+
+  function backgroundToDataUrl(source) {
+    const canvas = canvasFromSource(source, true);
+    const context = canvas.getContext("2d");
+    // Scan in strips so checking a large image does not allocate another full bitmap.
+    for (let y = 0; y < canvas.height; y += 64) {
+      const pixels = context.getImageData(0, y, canvas.width, Math.min(64, canvas.height - y)).data;
+      for (let alpha = 3; alpha < pixels.length; alpha += 4) {
+        if (pixels[alpha] !== 255) return canvas.toDataURL("image/png");
+      }
+    }
+    return canvas.toDataURL("image/jpeg", 0.88);
   }
 
   function makeThumbDataUrl() {
@@ -853,7 +892,7 @@
     let bgDataUrl;
     let thumbDataUrl;
     try {
-      bgDataUrl = sourceToDataUrl(state.bgImage, "image/jpeg", 0.88);
+      bgDataUrl = backgroundToDataUrl(state.bgImage);
       thumbDataUrl = makeThumbDataUrl();
     } catch (err) {
       reportCreatedStatus("Save failed: this design could not be prepared for browser storage. Try Download PNG to keep an image file.");
@@ -890,7 +929,20 @@
       },
     };
 
-    const entryBytes = entryEncodedBytes(entry);
+    let entryBytes = entryEncodedBytes(entry);
+    if (entryBytes > CREATED_MAX_BYTES && bgDataUrl.startsWith("data:image/png")) {
+      // Keep PNG lossless when it fits. Large transparent backgrounds can use
+      // high-quality WebP color compression while retaining their alpha channel.
+      try {
+        const compact = sourceToDataUrl(state.bgImage, "image/webp", 0.98);
+        if (compact.startsWith("data:image/webp") && compact.length < bgDataUrl.length) {
+          entry.composition.bgDataUrl = compact;
+          entryBytes = entryEncodedBytes(entry);
+        }
+      } catch {
+        // Retain the PNG and report the normal storage limit below.
+      }
+    }
     if (entryBytes > CREATED_MAX_BYTES) {
       reportCreatedStatus("This design is too large for the saved-design library. Use Download PNG to keep an image file.");
       return;
@@ -929,6 +981,7 @@
   }
 
   async function restoreComposition(pic) {
+    const ticket = beginDocumentOperation();
     const comp = pic?.composition;
     if (!isValidComposition(comp)) {
       els.meta.textContent = "Saved composition is incomplete";
@@ -937,53 +990,67 @@
 
     try {
       const bg = await loadImageUrl(comp.bgDataUrl);
+      if (!currentDocumentOperation(ticket)) return false;
+      const restoredImages = new Map();
 
       for (const [assetId, dataUrl] of Object.entries(comp.assetDataUrls || {})) {
         if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) {
           continue;
         }
         const img = await loadImageUrl(dataUrl);
-        assetImages.set(assetId, img);
-
-        if (assetId.startsWith("custom-")) {
-          const existing = state.customAssets.find((a) => a.id === assetId);
-          if (!existing) {
-            state.customAssets.push({
-              id: assetId,
-              label: "Restored asset",
-              dataUrl,
-            });
-          } else {
-            existing.dataUrl = dataUrl;
-          }
-        }
+        if (!currentDocumentOperation(ticket)) return false;
+        restoredImages.set(assetId, img);
       }
 
-      if (typeof comp.tintHex === "string" && parseHex(comp.tintHex)) {
-        state.tintHex = parseHex(comp.tintHex).hex;
-        if (comp.assetDataUrls?.[CUSTOM_COLOR_ID]) {
-          syncTintControls(state.tintHex);
-          const chipImg = document.querySelector(
-            `#chip-custom-color .asset-thumb img`
-          );
-          if (chipImg) chipImg.src = comp.assetDataUrls[CUSTOM_COLOR_ID];
-        } else {
-          applyTintColor(state.tintHex, { persist: false });
+      const textStyles = window.ComposerText.normalize(comp.textStyles);
+      let fontWarning = false;
+      try {
+        await window.ComposerText.loadStyles(textStyles);
+      } catch {
+        fontWarning = true;
+      }
+      if (!currentDocumentOperation(ticket)) return false;
+
+      const tint = typeof comp.tintHex === "string" ? parseHex(comp.tintHex) : null;
+      let tintPreview = comp.assetDataUrls?.[CUSTOM_COLOR_ID] || null;
+      if (tint && !restoredImages.has(CUSTOM_COLOR_ID)) {
+        let source = assetImages.get(TINT_SOURCE_ID);
+        if (!source) {
+          source = await loadImageUrl("brands/current/expenses-mark.png");
+          if (!currentDocumentOperation(ticket)) return false;
+          restoredImages.set(TINT_SOURCE_ID, source);
         }
+        const tinted = tintSourceImage(source, tint.r, tint.g, tint.b);
+        tintPreview = tinted.toDataURL("image/png");
+        restoredImages.set(CUSTOM_COLOR_ID, tinted);
       }
 
+      if (!currentDocumentOperation(ticket)) return false;
+      // Decode and load fonts off-state, then commit the complete document together.
+      for (const [assetId, image] of restoredImages) {
+        assetImages.set(assetId, image);
+        if (!assetId.startsWith("custom-")) continue;
+        const dataUrl = comp.assetDataUrls[assetId];
+        const existing = state.customAssets.find(asset => asset.id === assetId);
+        if (existing) existing.dataUrl = dataUrl;
+        else state.customAssets.push({ id: assetId, label: "Restored asset", dataUrl });
+      }
+      if (tint) {
+        syncTintControls(tint.hex);
+        const chipImg = document.querySelector("#chip-custom-color .asset-thumb img");
+        if (chipImg && tintPreview) chipImg.src = tintPreview;
+      }
       state.bgImage = bg;
       state.postDate = comp.postDate || null;
       state.auraPostType = comp.auraPostType === "cover" ? "cover" : null;
-      state.templateBrand = comp.templateBrand === "lumen" ? "lumen" : null;
-      state.presetKey =
-        Object.prototype.hasOwnProperty.call(PRESETS, comp.presetKey)
-          ? comp.presetKey
-          : "native";
+      state.templateBrand = !state.postDate && comp.templateBrand === "lumen" ? "lumen" : null;
+      state.presetKey = state.postDate ? "1080x1920"
+        : Object.prototype.hasOwnProperty.call(PRESETS, comp.presetKey) ? comp.presetKey : "native";
       if (els.preset) els.preset.value = state.presetKey;
       if (state.templateBrand === "lumen" && Object.hasOwn(window.LumenFactTemplate.formats, state.presetKey)) lumenFormat = state.presetKey;
 
-      state.textStyles = window.ComposerText.normalize(comp.textStyles);
+      state.textStyles = textStyles;
+      state.textReady = true;
       state.overlays = (comp.overlays || []).map((o) => ({
         type: o.type,
         text: o.text,
@@ -995,7 +1062,6 @@
         height: o.height,
       }));
       state.selectedId = null;
-      await textTools.loadFonts();
 
       recomputeCanvasSize();
       viewport?.reset();
@@ -1003,9 +1069,13 @@
       saveCustomAssets();
       renderCustomPane();
       draw();
-      els.meta.textContent = `Restored “${pic.label}”`;
+      els.meta.textContent = fontWarning
+        ? `Restored “${pic.label}” with fallback fonts because a font could not load.`
+        : `Restored “${pic.label}”`;
+      return true;
     } catch (err) {
-      els.meta.textContent = err.message || "Could not restore composition";
+      if (currentDocumentOperation(ticket)) els.meta.textContent = err.message || "Could not restore composition";
+      return false;
     }
   }
 
@@ -1538,6 +1608,7 @@
   }
 
   async function setBlankBackground() {
+    const ticket = beginDocumentOperation();
     const presetKey = els.preset.value;
     const preset = PRESETS[presetKey] || PRESETS["1080x1080"];
     const canvas = document.createElement("canvas");
@@ -1548,42 +1619,38 @@
     context.fillRect(0, 0, canvas.width, canvas.height);
     // Use the same image pipeline as uploads so save, restore and export work normally.
     const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+    if (!currentDocumentOperation(ticket)) return false;
     if (!blob) throw new Error("Could not create a blank background");
-    await setBackground(blob, () => {
-      state.presetKey = presetKey;
-      return true;
-    });
+    return setBackground(blob, null, ticket);
   }
 
   // Shared canvas pipeline: template posts retain normal placement, saving and export.
   window.auraComposer = {
-    async setHoroscope(blob, date, isCurrent = () => true, postType = "horoscope") {
-      const applied = await setBackground(blob, () => {
+    async setHoroscope(blob, date, isCurrent = () => true, postType = "horoscope", ticket) {
+      if (!isCurrent() || (ticket !== undefined && !currentDocumentOperation(ticket))) return false;
+      const operation = ticket ?? beginDocumentOperation("aura");
+      return setBackground(blob, () => {
         if (!isCurrent()) return false;
         state.presetKey = "1080x1920";
         els.preset.value = state.presetKey;
         state.showGrid = false;
         syncGridToggle();
         return true;
-      });
-      if (!applied) return false;
-      state.postDate = date;
-      state.auraPostType = postType === "cover" ? "cover" : "horoscope";
-      return true;
+      }, operation, { postDate: date, auraPostType: postType === "cover" ? "cover" : "horoscope" });
     }
   };
 
   window.lumenComposer = {
     getFormat: () => Object.hasOwn(window.LumenFactTemplate.formats, els.preset.value) ? els.preset.value : lumenFormat,
-    async setFact(blob, format = "1080x1920", isCurrent = () => true) {
+    async setFact(blob, format = "1080x1920", isCurrent = () => true, ticket) {
       if (!Object.hasOwn(window.LumenFactTemplate.formats, format)) throw new Error("Choose a valid Lumen format.");
-      const applied=await setBackground(blob,()=>{
+      if (!isCurrent() || (ticket !== undefined && !currentDocumentOperation(ticket))) return false;
+      const operation = ticket ?? beginDocumentOperation("lumen");
+      return setBackground(blob,()=>{
         if(!isCurrent())return false;
         lumenFormat=format;state.presetKey=format;els.preset.value=state.presetKey;
         state.showGrid=false;syncGridToggle();return true;
-      });
-      if(!applied)return false;
-      state.templateBrand="lumen";updateChrome();return true;
+      }, operation, { templateBrand: "lumen" });
     }
   };
 
@@ -1685,6 +1752,12 @@
 
   els.preset.addEventListener("change", () => {
     if (lumenActive() && Object.hasOwn(window.LumenFactTemplate.formats, els.preset.value)) lumenFormat = els.preset.value;
+    if (state.postDate) {
+      if (!lumenActive()) els.preset.value = "1080x1920";
+      else if (!Object.hasOwn(window.LumenFactTemplate.formats, els.preset.value)) els.preset.value = lumenFormat;
+      updateChrome();
+      return;
+    }
     if (state.templateBrand === "lumen" || (lumenActive() && !state.bgImage)) {
       if (Object.hasOwn(window.LumenFactTemplate.formats, els.preset.value)) lumenFormat = els.preset.value;
       else els.preset.value = lumenFormat;
@@ -1862,16 +1935,25 @@
   async function bootCustomAssets() {
     const stored = loadCustomAssetsFromStorage();
     const loaded = [];
+    const loadedImages = new Map();
     for (const asset of stored) {
       try {
-        await preloadCustomAsset(asset);
+        const image = await loadImageUrl(asset.dataUrl);
+        loadedImages.set(asset.id, image);
         loaded.push(asset);
       } catch {
         // drop broken entries
       }
     }
-    state.customAssets = loaded;
-    if (loaded.length !== stored.length) {
+    const currentAssets = new Map(state.customAssets.map(asset => [asset.id, asset]));
+    for (const asset of loaded) {
+      if (!currentAssets.has(asset.id)) assetImages.set(asset.id, loadedImages.get(asset.id));
+    }
+    state.customAssets = [
+      ...loaded.filter(asset => !currentAssets.has(asset.id)),
+      ...currentAssets.values(),
+    ];
+    if (loaded.length !== stored.length || currentAssets.size) {
       saveCustomAssets();
     }
     renderCustomPane();
@@ -1891,6 +1973,8 @@
   state.showGrid = loadShowGrid();
   state.gridInvert = loadGridInvert();
   state.createdPaneOpen = loadCreatedPaneOpen();
+  state.tintHex = loadStoredTintHex();
+  syncTintControls(state.tintHex);
   syncGridToggle();
   syncGridInvert();
   syncCreatedPane();
@@ -1898,9 +1982,8 @@
   wireTintControls();
   Promise.all([preloadAssets(), bootCustomAssets()])
     .then(([failedAssets]) => {
-      state.tintHex = loadStoredTintHex();
       buildAssetPane();
-      applyTintColor(state.tintHex, { persist: false });
+      if (!assetImages.has(CUSTOM_COLOR_ID)) applyTintColor(state.tintHex, { persist: false });
       updateChrome();
       if (failedAssets) els.meta.textContent = `${failedAssets} brand assets could not load. Available assets are ready; reload to retry.`;
     })

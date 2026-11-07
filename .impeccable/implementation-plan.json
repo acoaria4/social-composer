@@ -17,8 +17,17 @@
     },
     {
       "id": "2-safe-document-operations-and-exports",
-      "status": "pending",
-      "scope": ["Newest upload/restore/reset wins", "Preserve image transparency", "Protect supported AURA formats", "Validate actual text bounds", "Selection preserves stacking"]
+      "status": "complete",
+      "scope": ["Newest upload/restore/reset wins", "Preserve image transparency", "Protect supported AURA formats", "Validate actual text bounds", "Selection preserves stacking"],
+      "acceptance": ["Delayed uploads, restores and template renders cannot replace newer canvas actions", "Transparent and partially transparent backgrounds survive save, reload and PNG export", "AURA artwork stays 1080x1920 while Lumen can stage its next format", "Oversized graphemes and visible text overhang block PNG export until corrected", "Selecting, moving and resizing preserves saved overlay order", "Existing eight browser suites remain green"],
+      "verification": {
+        "date": "2026-11-07",
+        "result": "passed",
+        "browser_suites": ["test-document-safety.cjs", "test-storage.cjs", "test-editor.cjs", "test-viewport.cjs", "test-text-boxes.cjs", "test-lumen.cjs", "test-lumen-formats.cjs", "test-horoscope.cjs", "test-horoscope-cover.cjs"],
+        "additional_checks": ["Nine delayed-operation cases", "All 1572516 alpha values preserved through large-image WebP save, restore and PNG export", "Small transparent PNG and SVG exact RGBA", "Independent code review and font-gated restore/fallback probes", "Real-font Tamil, emoji and serif-overhang checks", "JavaScript syntax", "git diff --check"],
+        "storage_note": "Transparent backgrounds stay lossless PNG when the complete entry fits; oversized entries may use high-quality WebP color compression with exact alpha. Existing library limits and no-eviction rules remain in place.",
+        "evidence": ["exports/document-safety/results.json", "exports/sprint2/restore-font-gates.json", "exports/sprint2/text-probe-results.json"]
+      }
     },
     {
       "id": "3-recoverable-accessible-editing",

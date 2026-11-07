@@ -14,7 +14,7 @@ Tool sections start collapsed. Each brand's artwork lives under **Assets → Ico
 
 After uploading a background or creating a canvas, open **Text → Add text box**. Type or paste into **Box text**: its first line is the header and the remaining lines are the body. **Headers · first line** and **Body text** control font, size, color, and weight across all boxes independently. The first formatted paste with a supported inline font supplies the shared fonts; plain-text or unsupported-font pastes keep the selected fonts. The dropdowns list supported local and standard fonts. Pasted markup is never added to the page.
 
-Select a box on the canvas or from the text-box list. Drag it to move, drag a corner to change its width, or expand **Position and width** for numeric controls. Text wraps without shrinking, and box height grows with its content. PNG download is disabled when a box extends beyond the canvas; adjust its position, width, or shared text size to fit. Saved designs retain editable text and shared styles, including after reloading. Existing saved image-only designs remain compatible.
+Select a box on the canvas or from the text-box list. Drag it to move, drag a corner to change its width, or expand **Position and width** for numeric controls. Text wraps without shrinking, and box height grows with its content. PNG download is disabled when a box or its visible text extends beyond the canvas, or when the box is too narrow for an indivisible character. Adjust its position, width, or shared text size to fit. Saved designs retain editable text and shared styles, including after reloading. Existing saved image-only designs remain compatible.
 
 Run `node scripts/test-text-boxes.cjs` with the same Playwright setup to check collapsed sections, paste handling, shared styles, wrapping, overflow, editable save/restore, PNG export, and responsive controls. Outputs go to `exports/text-boxes/`.
 
@@ -28,7 +28,13 @@ Use **Save design** to keep an editable composition in this browser and **Saved 
 
 The saved-design library holds up to twelve designs within its storage budget. A new save never removes an older design. If the library or browser storage is full, the Saved designs panel explains the problem and offers recovery steps; Download PNG remains available. Save and Remove update the visible library only after browser storage confirms the change. A failed write keeps the existing library intact.
 
+Saved backgrounds with transparent or partially transparent pixels use lossless PNG so their transparency survives restore and export. If that design exceeds the library budget, the editor tries high-quality WebP color compression while preserving transparency. Fully opaque backgrounds retain compressed JPEG storage. The existing library limit still applies; Download PNG keeps the image when a design remains too large to save locally. Older JPEG-based saves remain compatible.
+
+Uploads, saved-design restores, blank canvases, and generated templates share one operation check. Opening or clearing a canvas cancels earlier work, including pending API requests. A delayed image or template cannot replace a newer choice. Restores prepare their images and fonts before replacing the current design. Selecting, moving, or resizing an existing object preserves its stacking order.
+
 Run `node scripts/test-storage.cjs` with Playwright available through `NODE_PATH` and Chrome installed to check failed writes, full-library retention, storage-budget limits, removal retry, and save/reload. It starts a local static server unless `COMPOSER_URL` is set. Review artifacts go to `exports/storage/`.
+
+Run `node scripts/test-document-safety.cjs` with the same setup to check delayed document operations, transparent saves and PNG downloads, AURA format protection, stable stacking, and actual text overflow. It also starts its own local server unless `COMPOSER_URL` is set. Outputs go to `exports/document-safety/`.
 
 With Playwright available through `NODE_PATH` and local Chrome installed, run `node scripts/test-editor.cjs` to check keyboard navigation, drafts, asset editing, uploads, saving/restoring, export, validation, and layouts at 390, 860, and 1440 px. Set `COMPOSER_URL` when using a different local port. Screenshots are written to `exports/editor/`.
 
@@ -73,6 +79,8 @@ The older files under `brands/` are no longer referenced by the composer.
 Select **AURA** and choose **Manual entry** (default) or **Fetch from AURA API**. Manual entry provides twelve labelled reading fields; paste one reading per sign, then select **Create horoscope**. All fields are required. Manual mode makes no API requests, and drafts survive source, brand, date, language, and color changes during the current page session (not a reload). API results never overwrite these drafts.
 
 Choose **தமிழ் · Tamil** (default) or **English**, a reading date, and a background. API mode fetches the selected language directly from AURA. Both modes produce one 1080 × 1920 (9:16) canvas. Save and Download PNG use the normal composer controls.
+
+Generated AURA readings and covers keep their supported Story / Reel size; the canvas-size control is locked while editing them. Restoring an older AURA save also restores its full 9:16 background rather than a cropped preset. Selecting Lumen lets you stage another format for a new Lumen post without resizing the current AURA artwork. Blank canvases and uploaded backgrounds retain the normal size controls.
 
 All eight backgrounds are always available in either language: No tint (ivory), Sunday warm gold, Monday moon pearl, Tuesday terracotta, Wednesday sage, Thursday saffron, Friday rose, and Saturday lavender. Automatic follows the selected date in Asia/Kolkata. These are editorial tints, independent of the readings.
 

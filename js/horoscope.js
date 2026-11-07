@@ -140,6 +140,9 @@
   fontSize.addEventListener('input', () => {if(fontSize.checkValidity())fontRange.value=fontSize.value;update();});
   fontWeight.addEventListener('change', update);
   language.addEventListener('change', () => {update();checkApi();});
+  document.addEventListener('composer:document-operation', event => {
+    if (event.detail.owner !== 'aura') update();
+  });
   update();
 
   function validate(data, day, lang) {
@@ -160,6 +163,7 @@
   coverButton.addEventListener('click', async () => {
     if (!dateInput.reportValidity()) return;
     const version = cancelWork();
+    const ticket = window.ComposerDocument.begin('aura');
     const day = dateInput.value, lang = language.value, colors = palette();
     request = new AbortController();
     coverButton.disabled = true;
@@ -168,8 +172,8 @@
     status.textContent = 'Preparing your daily cover…';
     try {
       const blob = await template.renderCover({date:day, language:lang}, colors);
-      if (version !== revision) return;
-      if (!await window.auraComposer.setHoroscope(blob, day, () => version === revision, 'cover')) return;
+      if (version !== revision || !window.ComposerDocument.isCurrent(ticket)) return;
+      if (!await window.auraComposer.setHoroscope(blob, day, () => version === revision, 'cover', ticket)) return;
       status.textContent = `Cover ready: ${day} · ${colors[0]} · ${lang === 'ta' ? 'தமிழ்' : 'English'}. Save or Download PNG to keep it.`;
     } catch (error) {
       if (version === revision) status.textContent = error.message;
@@ -180,6 +184,7 @@
   blankButton.addEventListener('click', async () => {
     if (!dateInput.reportValidity()) return;
     const version=cancelWork(), day=dateInput.value,lang=language.value;
+    const ticket = window.ComposerDocument.begin('aura');
     request = new AbortController();
     blankButton.disabled = true;
     blankButton.textContent = 'Creating blank template…';
@@ -187,8 +192,8 @@
     status.textContent = 'Preparing your blank horoscope template…';
     try {
       const blob=await render({date:day,language:lang},palette(),{blank:true});
-      if(version!==revision)return;
-      if (!await window.auraComposer.setHoroscope(blob,day,()=>version===revision)) return;
+      if(version!==revision || !window.ComposerDocument.isCurrent(ticket))return;
+      if (!await window.auraComposer.setHoroscope(blob,day,()=>version===revision,'horoscope',ticket)) return;
       context.textContent='';
       status.textContent='Blank template ready. Add your own readings below each sign name. Download PNG to export.';
     } catch(error) {if(version===revision)status.textContent=error.message;}
@@ -208,6 +213,7 @@
         return;
       }
     }
+    const ticket = window.ComposerDocument.begin('aura');
     const day=dateInput.value,lang=language.value,colors=palette();
     const textStyle = typography();
     const manualData = {date:day, language:lang, ordered:fields.map(({input}, i)=>({name:SIGNS[i], text:input.value.trim()}))};
@@ -215,10 +221,10 @@
     button.disabled=true;button.textContent=manual?'Creating horoscope…':'Loading AURA…';status.textContent=manual?'Preparing your 12 readings…':`Fetching all 12 readings for ${day}…`;
     try {
       const data=manual ? manualData : await fetchReadings(day, lang, controller.signal);
-      if(version!==revision)return;
+      if(version!==revision || !window.ComposerDocument.isCurrent(ticket))return;
       const blob=await render(data,colors,textStyle);
-      if(version!==revision)return;
-      if (!await window.auraComposer.setHoroscope(blob,day,()=>version===revision)) return;
+      if(version!==revision || !window.ComposerDocument.isCurrent(ticket))return;
+      if (!await window.auraComposer.setHoroscope(blob,day,()=>version===revision,'horoscope',ticket)) return;
       context.textContent=manual?'':data.disclaimer;context.lang=lang;
       status.textContent=`Ready: ${day} · ${colors[0]} · ${lang==='ta'?'தமிழ்':'English'} · all 12 ${manual?'manual readings':'readings from AURA'}. Download PNG to export.`;
     } catch(error) {

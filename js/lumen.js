@@ -7,16 +7,18 @@
   subject.addEventListener('change',invalidate);
   format.addEventListener('change',invalidate);
   document.querySelectorAll('[data-brand]:not([data-brand="lumen"])').forEach(button=>button.addEventListener('click',invalidate));
+  document.addEventListener('composer:document-operation',event=>{if(event.detail.owner!=='lumen')invalidate();});
   button.addEventListener('click',async()=>{
     if(!text.value.trim()){text.focus();status.textContent='Enter a fact or explanation first.';return;}
     if(!size.reportValidity())return;
     const selectedFormat=window.lumenComposer.getFormat();
     const version=++revision;
+    const ticket=window.ComposerDocument.begin('lumen');
     button.disabled=true;button.textContent='Creating…';status.textContent='Preparing your Lumen post…';
     try{
       const blob=await window.LumenFactTemplate.render({text:text.value,subject:subject.value,fontSize:size.valueAsNumber,format:selectedFormat});
-      if(version!==revision)return;
-      if(!await window.lumenComposer.setFact(blob,selectedFormat,()=>version===revision))return;
+      if(version!==revision||!window.ComposerDocument.isCurrent(ticket))return;
+      if(!await window.lumenComposer.setFact(blob,selectedFormat,()=>version===revision,ticket))return;
       status.textContent=`Ready: ${selectedFormat.replace('x',' × ')} · Lumen fact post. Save or Download PNG to keep it.`;
     }catch(error){if(version===revision)status.textContent=error.message;}
     finally{if(version===revision){button.disabled=false;button.textContent='Create Lumen post';}}

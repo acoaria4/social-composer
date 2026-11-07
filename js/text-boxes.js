@@ -16,6 +16,13 @@
     return out;
   }
   const fontString = style => `${style.weight} ${style.size}px "${style.font}", "Noto Sans Tamil", sans-serif`;
+  async function loadStyles(styles) {
+    const selected = normalize(styles);
+    await Promise.all(['header', 'body'].flatMap(kind => [
+      document.fonts.load(fontString(selected[kind])),
+      document.fonts.load(`${selected[kind].weight} ${selected[kind].size}px "Noto Sans Tamil"`, 'தமிழ்'),
+    ]));
+  }
   const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
   function wrap(context, text, width) {
     const lines = []; let line = '';
@@ -33,26 +40,59 @@
   }
   function layout(context, box, styles) {
     const paragraphs = box.text.replace(/\r\n?/g, '\n').split('\n');
-    let y = 8; const lines = [];
+    const innerWidth = Math.max(1, box.width - 16);
+    let y = 8, tooNarrow = false, inkBounds = null;
+    const lines = [];
+    context.textAlign = 'left';
+    context.textBaseline = 'top';
     paragraphs.forEach((paragraph, index) => {
       const style = styles[index === 0 ? 'header' : 'body'];
       context.font = fontString(style);
-      for (const line of wrap(context, paragraph, Math.max(1, box.width - 16))) {
-        lines.push({ text: line, y, style }); y += style.size * 1.4;
+      for (const line of wrap(context, paragraph, innerWidth)) {
+        const metrics = context.measureText(line);
+        // A grapheme cannot be split further. Keep it intact, but do not let
+        // an over-wide character silently bypass the export check.
+        tooNarrow ||= metrics.width > innerWidth;
+        if (metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight > 0 && metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent > 0) {
+          const bounds = {
+            left: box.x + 8 - metrics.actualBoundingBoxLeft,
+            right: box.x + 8 + metrics.actualBoundingBoxRight,
+            top: box.y + y - metrics.actualBoundingBoxAscent,
+            bottom: box.y + y + metrics.actualBoundingBoxDescent,
+          };
+          inkBounds = inkBounds ? {
+            left: Math.min(inkBounds.left, bounds.left),
+            right: Math.max(inkBounds.right, bounds.right),
+            top: Math.min(inkBounds.top, bounds.top),
+            bottom: Math.max(inkBounds.bottom, bounds.bottom),
+          } : bounds;
+        }
+        lines.push({ text: line, y, style });
+        y += style.size * 1.4;
       }
       if (index === 0 && paragraphs.length > 1) y += 8;
     });
-    return { lines, height: Math.ceil(y + 8) };
+    return { lines, height: Math.ceil(Math.max(y + 8, (inkBounds?.bottom ?? box.y) - box.y + 8)), tooNarrow, inkBounds };
   }
   function draw(context, box, styles) {
+    context.save();
     const result = layout(context, box, styles);
     box.height = result.height;
-    context.save(); context.textBaseline = 'top';
+    // Derived layout is recomputed after every text/style/position change and
+    // is not part of the saved composition format.
+    box.textLayout = { tooNarrow: result.tooNarrow, inkBounds: result.inkBounds };
     for (const line of result.lines) {
       context.font = fontString(line.style); context.fillStyle = line.style.color;
       context.fillText(line.text, box.x + 8, box.y + line.y);
     }
     context.restore();
+  }
+  function overflow(box, canvasWidth, canvasHeight) {
+    if (box.textLayout?.tooNarrow) return 'width';
+    const ink = box.textLayout?.inkBounds;
+    if (box.x < 0 || box.y < 0 || box.x + box.width > canvasWidth || box.y + box.height > canvasHeight ||
+      (ink && (ink.left < 0 || ink.top < 0 || ink.right > canvasWidth || ink.bottom > canvasHeight))) return 'canvas';
+    return null;
   }
   function init(state, { changed, nextId, remove }) {
     const el = id => document.getElementById(id);
@@ -63,8 +103,7 @@
       const version = ++revision;
       state.textReady = false; changed();
       try {
-        await Promise.all(['header', 'body'].map(kind => document.fonts.load(fontString(state.textStyles[kind]))));
-        await Promise.all(['header', 'body'].map(kind => document.fonts.load(`${state.textStyles[kind].weight} ${state.textStyles[kind].size}px "Noto Sans Tamil"`, 'தமிழ்')));
+        await loadStyles(state.textStyles);
       } catch { status.textContent = 'A font could not load. Your browser will use a fallback font.'; }
       finally { if (version === revision) { state.textReady = true; changed(); } }
     }
@@ -88,7 +127,8 @@
       }
       if (!state.bgImage) status.textContent = 'Upload a background or start a blank canvas first.';
       else if (!state.textReady) status.textContent = 'Loading text fonts…';
-      else if (boxes.some(o => o.y < 0 || o.x < 0 || o.x + o.width > state.width || o.y + o.height > state.height)) status.textContent = 'A text box extends outside the canvas. Move it, widen it, or reduce the shared font size before exporting.';
+      else if (boxes.some(o => overflow(o, state.width, state.height) === 'width')) status.textContent = 'A text box is too narrow for its text. Widen it or reduce the shared font size before exporting.';
+      else if (boxes.some(o => overflow(o, state.width, state.height) === 'canvas')) status.textContent = 'Text extends outside the canvas. Move the box, widen it, or reduce the shared font size before exporting.';
       else status.textContent = boxes.length ? `${boxes.length} text box${boxes.length === 1 ? '' : 'es'} · Style changes apply to all boxes.` : 'Your background is ready. Add a text box to begin.';
     }
     el('text-add').addEventListener('click', () => {
@@ -136,5 +176,5 @@
     });
     return { sync, loadFonts };
   }
-  window.ComposerText = { defaults, normalize, draw, init };
+  window.ComposerText = { defaults, normalize, draw, overflow, loadStyles, init };
 })();
