@@ -1,36 +1,14 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const http = require('node:http');
 const path = require('node:path');
-const { chromium } = require('playwright');
+const { launchBrowser, startServer, clickAsset } = require('./test-support.cjs');
 
 const root = path.resolve(__dirname, '..');
 const output = path.join(root, 'exports/sprint3/layers');
 
-async function startServer() {
-  const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.png': 'image/png', '.svg': 'image/svg+xml', '.ttf': 'font/ttf' };
-  const server = http.createServer((request, response) => {
-    if (!['GET', 'HEAD'].includes(request.method)) { response.writeHead(405).end(); return; }
-    let file;
-    try {
-      const pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
-      file = path.resolve(root, `.${pathname === '/' ? '/index.html' : pathname}`);
-      if (file !== root && !file.startsWith(root + path.sep)) throw new Error('Outside repository');
-    } catch { response.writeHead(400).end(); return; }
-    fs.stat(file, (error, stat) => {
-      if (error || !stat.isFile()) { response.writeHead(404).end(); return; }
-      response.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream', 'Content-Length': stat.size });
-      if (request.method === 'HEAD') response.end();
-      else fs.createReadStream(file).on('error', () => response.destroy()).pipe(response);
-    });
-  });
-  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
-  return { server, url: `http://127.0.0.1:${server.address().port}/` };
-}
-
 (async () => {
   const local = process.env.COMPOSER_URL ? null : await startServer();
-  const browser = await chromium.launch({ channel: 'chrome', headless: true });
+  const browser = await launchBrowser();
   const errors = [], evidence = {};
   fs.mkdirSync(output, { recursive: true });
   try {
@@ -64,7 +42,7 @@ async function startServer() {
     }
     await page.locator('#tab-assets').click();
     await page.locator('#panel-assets [data-brand-panel="expenses"] > summary').click();
-    await page.locator('[data-asset-id="expenses-icon"]').click();
+    await clickAsset(page, '[data-asset-id="expenses-icon"]');
     await page.locator('#tab-layers').click();
     assert.equal(await page.locator('.layer-row').count(), 1);
     assert.equal(await page.locator('#panel-layers button button').count(), 0, 'Layer controls are separate native buttons');
@@ -182,15 +160,23 @@ async function startServer() {
       const selected = await page.locator('#selection-box').boundingBox();
       const canvas = await page.locator('#stage-canvas').boundingBox();
       const dimensions = await page.locator('#stage-canvas').evaluate(node => [node.width, node.height]);
+      await page.evaluate(() => {
+        window.dragProbe = {};
+        const record = event => { window.dragProbe[event.type === 'pointerdown' ? 'from' : 'to'] = [event.clientX, event.clientY]; };
+        window.addEventListener('pointerdown', record, true); window.addEventListener('pointermove', record, true);
+        window.stopDragProbe = () => { window.removeEventListener('pointerdown', record, true); window.removeEventListener('pointermove', record, true); };
+      });
       await page.mouse.move(selected.x + selected.width / 2, selected.y + selected.height / 2); await page.mouse.down();
       await page.mouse.move(selected.x + selected.width / 2 + dx * canvas.width / dimensions[0], selected.y + selected.height / 2 + dy * canvas.height / dimensions[1], { steps: 3 }); await page.mouse.up();
+      const actual = await page.evaluate(() => { window.stopDragProbe(); return window.dragProbe; });
+      return actual.to.map((value, axis) => Math.round((value - actual.from[axis]) * dimensions[0] / canvas.width));
     }
     await drag(23, 17);
     const snapped = await values(); assert.equal(snapped[0] % 72, 0); assert.equal(snapped[1] % 72, 0);
     await page.locator('#btn-snap').click(); await page.locator('#btn-grid').click();
     await page.locator('#layer-x').fill('301'); await page.locator('#layer-y').fill('301');
-    await drag(23, 17);
-    assert.deepEqual((await values()).slice(0, 2), [324, 318]);
+    const pointerDelta = await drag(23, 17);
+    assert.deepEqual((await values()).slice(0, 2), pointerDelta.map(delta => 301 + delta), 'Unsnapped movement matches the actual pointer coordinates, including native CSS-pixel rounding');
     assert.equal(await page.locator('#btn-grid').getAttribute('aria-pressed'), 'true');
     assert.equal(await page.locator('#btn-snap').getAttribute('aria-pressed'), 'false');
     evidence.gridAndSnap = { hiddenGridStillSnaps: true, visibleGridWithoutSnapping: true, exactMovement: true };

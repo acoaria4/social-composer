@@ -1,36 +1,14 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const http = require('node:http');
 const path = require('node:path');
-const { chromium } = require('playwright');
+const { launchBrowser, startServer, clickAsset } = require('./test-support.cjs');
 
 const root = path.resolve(__dirname, '..');
 const output = path.join(root, 'exports/sprint3/editing-session');
 
-async function startServer() {
-  const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.png': 'image/png', '.svg': 'image/svg+xml', '.ttf': 'font/ttf' };
-  const server = http.createServer((request, response) => {
-    if (!['GET', 'HEAD'].includes(request.method)) { response.writeHead(405).end(); return; }
-    let file;
-    try {
-      const pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
-      file = path.resolve(root, `.${pathname === '/' ? '/index.html' : pathname}`);
-      if (file !== root && !file.startsWith(root + path.sep)) throw new Error('Outside repository');
-    } catch { response.writeHead(400).end(); return; }
-    fs.stat(file, (error, stat) => {
-      if (error || !stat.isFile()) { response.writeHead(404).end(); return; }
-      response.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream', 'Content-Length': stat.size });
-      if (request.method === 'HEAD') response.end();
-      else fs.createReadStream(file).on('error', () => response.destroy()).pipe(response);
-    });
-  });
-  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
-  return { server, url: `http://127.0.0.1:${server.address().port}/` };
-}
-
 (async () => {
   const local = process.env.COMPOSER_URL ? null : await startServer();
-  const browser = await chromium.launch({ channel: 'chrome', headless: true });
+  const browser = await launchBrowser();
   const evidence = {}, errors = [];
   try {
     fs.mkdirSync(output, { recursive: true });
@@ -127,7 +105,7 @@ async function startServer() {
     await blank(pointer);
     await pointer.locator('#tab-assets').click();
     await pointer.locator('#panel-assets [data-brand-panel="expenses"] > summary').click();
-    await pointer.locator('[data-asset-id="expenses-icon"]').click();
+    await clickAsset(pointer, '[data-asset-id="expenses-icon"]');
     await pointer.locator('#tab-layers').click();
     const original = await pointer.locator('#layer-x').inputValue();
     const selection = await pointer.locator('#selection-box').boundingBox();

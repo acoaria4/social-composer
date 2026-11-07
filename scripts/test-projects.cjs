@@ -1,39 +1,17 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const http = require('node:http');
 const path = require('node:path');
-const { chromium } = require('playwright');
+const { launchBrowser, startServer, clickAsset } = require('./test-support.cjs');
 const root = path.resolve(__dirname, '..');
 const output = path.join(root, 'exports/sprint3/projects');
 const libraryKey = 'glitch-social-composer-created-pics';
-
-async function startServer() {
-  const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.png': 'image/png', '.svg': 'image/svg+xml', '.ttf': 'font/ttf' };
-  const server = http.createServer((request, response) => {
-    if (!['GET', 'HEAD'].includes(request.method)) { response.writeHead(405).end(); return; }
-    let file;
-    try {
-      const pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
-      file = path.resolve(root, `.${pathname === '/' ? '/index.html' : pathname}`);
-      if (file !== root && !file.startsWith(root + path.sep)) throw new Error('Outside repository');
-    } catch { response.writeHead(400).end(); return; }
-    fs.stat(file, (error, stat) => {
-      if (error || !stat.isFile()) { response.writeHead(404).end(); return; }
-      response.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream', 'Content-Length': stat.size });
-      if (request.method === 'HEAD') response.end();
-      else fs.createReadStream(file).on('error', () => response.destroy()).pipe(response);
-    });
-  });
-  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
-  return { server, url: `http://127.0.0.1:${server.address().port}/` };
-}
 
 (async () => {
   const local = process.env.COMPOSER_URL ? null : await startServer();
   let browser;
   const evidence = {}, errors = [];
   try {
-    browser = await chromium.launch({ channel: 'chrome', headless: true });
+    browser = await launchBrowser();
     fs.mkdirSync(output, { recursive: true });
     const url = process.env.COMPOSER_URL || local.url;
     async function editor() {
@@ -45,7 +23,12 @@ async function startServer() {
       return page;
     }
     const ready = page => page.waitForFunction(() => !document.querySelector('#btn-save').disabled);
-    const pixels = page => page.locator('#stage-canvas').evaluate(canvas => canvas.toDataURL());
+    // Compare rendered RGBA, since a PNG's encoder metadata is not its pixels.
+    const pixels = page => page.locator('#stage-canvas').evaluate(async canvas => {
+      const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+      const hash = await crypto.subtle.digest('SHA-256', data);
+      return `${canvas.width}x${canvas.height}:${Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join('')}`;
+    });
     async function more(page, id) {
       if (!await page.locator('.more-actions').evaluate(element => element.open)) await page.locator('.more-actions > summary').click();
       await page.locator(id).click();
@@ -70,18 +53,18 @@ async function startServer() {
     await source.waitForFunction(() => document.querySelector('#lumen-status').textContent.startsWith('Ready:')); await ready(source);
     await source.locator('[data-brand="expenses"]').click(); await source.locator('#tab-assets').click();
     await source.locator('#panel-assets [data-brand-panel="expenses"] > summary').click();
-    await source.locator('[data-asset-id="expenses-icon"]').click();
+    await clickAsset(source, '[data-asset-id="expenses-icon"]');
     await source.locator('#custom-asset-input').setInputFiles({ name: 'stamp.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="12"><rect width="24" height="12" fill="#00ff00" opacity=".5"/></svg>') });
     await source.waitForFunction(() => document.querySelectorAll('#assets-custom .asset-chip').length === 1);
     await source.locator('#assets-custom').evaluate(element => { element.closest('details').open = true; });
-    await source.locator('#assets-custom .asset-chip').click(); await source.locator('#tab-layers').click();
+    await clickAsset(source, '#assets-custom .asset-chip'); await source.locator('#tab-layers').click();
     await source.locator('.layer-row:has(.layer-select[aria-pressed="true"]) .layer-lock').click();
     await source.locator('.layer-row:has(.layer-select[aria-pressed="true"]) .layer-visibility').click();
     await source.locator('#tab-text').click(); await source.locator('#text-add').click();
     await source.locator('#text-content').fill('Editable layer');
     await source.locator('[data-brand="lumen"]').click(); await source.locator('#tab-create').click();
     await source.locator('#lumen-text').fill(latestDraft);
-    const beforeImport = await pixels(source), project = await exported(source, 'portable-project.json');
+    const beforeImport = await pixels(source), beforePng = await source.locator('#stage-canvas').evaluate(canvas => canvas.toDataURL()), project = await exported(source, 'portable-project.json');
     assert.equal(project.format, 'social-composer-project'); assert.equal(project.version, 1);
     assert.equal(project.composition.templateSource.kind, 'lumen-fact');
     assert.equal(project.composition.templateSource.form.text, originalText, 'Rendered source stays immutable while its draft changes');
@@ -93,7 +76,33 @@ async function startServer() {
     await source.context().close();
 
     const target = await editor(); await imported(target, project); await ready(target);
-    assert.equal(await pixels(target), beforeImport, 'Portable import preserves exact preview pixels');
+    const afterImport = await pixels(target);
+    let importDiff = { count: 0, maxDelta: 0, alphaDelta: 0, outsideImages: 0 };
+    if (afterImport !== beforeImport) {
+      importDiff = await target.locator('#stage-canvas').evaluate(async (canvas, { png, layers }) => {
+        const image = new Image(); image.src = png; await image.decode();
+        const reference = document.createElement('canvas'); reference.width = canvas.width; reference.height = canvas.height;
+        const context = reference.getContext('2d'); context.drawImage(image, 0, 0);
+        const expected = context.getImageData(0, 0, canvas.width, canvas.height).data;
+        const actual = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+        let count = 0, maxDelta = 0, alphaDelta = 0, outsideImages = 0;
+        for (let i = 0; i < expected.length; i += 4) {
+          let different = false;
+          for (let c = 0; c < 4; c++) { const delta = Math.abs(expected[i + c] - actual[i + c]); maxDelta = Math.max(maxDelta, delta); different ||= delta > 0; }
+          alphaDelta = Math.max(alphaDelta, Math.abs(expected[i + 3] - actual[i + 3]));
+          if (different) {
+            const x = i / 4 % canvas.width, y = Math.floor(i / 4 / canvas.width); count++;
+            if (!layers.some(layer => x >= layer.x && x < layer.x + layer.width && y >= layer.y && y < layer.y + layer.height)) outsideImages++;
+          }
+        }
+        return { count, maxDelta, alphaDelta, outsideImages };
+      }, { png: beforePng, layers: project.composition.overlays.filter(layer => layer.type !== 'text' && !layer.hidden) });
+    }
+    // Gecko's PNG encode/decode of translucent artwork changes some composited
+    // RGB channels by one level. Geometry, text, background and alpha stay exact.
+    assert.ok(importDiff.maxDelta <= 1, `Portable image RGB round-trip delta: ${JSON.stringify(importDiff)}`);
+    assert.equal(importDiff.alphaDelta, 0, 'Portable import preserves alpha exactly');
+    assert.equal(importDiff.outsideImages, 0, 'Pixels outside visible image layers stay exact');
     const roundTrip = await exported(target, 'round-trip.json');
     const layerProperties = layers => layers.map(({ type, text, x, y, width, height, hidden, locked }) => ({ type, text, x, y, width, height, hidden, locked }));
     assert.deepEqual(layerProperties(roundTrip.composition.overlays), layerProperties(project.composition.overlays));
@@ -117,7 +126,7 @@ async function startServer() {
       await target.waitForTimeout(450);
       assert.match(await target.locator('#session-status').innerText(), /Project not opened/, 'Background recovery must not replace the import error');
     }
-    evidence.portableProject = { embeddedImages: 3, exactPixels: true, editableLayers: true, flagsAndLabels: true, immutableTemplateSource: true, latestDraftRestored: true, explicitSourceRestore: true, rejectedFiles: invalid.length };
+    evidence.portableProject = { embeddedImages: 3, exactPixels: afterImport === beforeImport, imageRoundTrip: importDiff, editableLayers: true, flagsAndLabels: true, immutableTemplateSource: true, latestDraftRestored: true, explicitSourceRestore: true, rejectedFiles: invalid.length };
     await target.context().close();
 
     const draft = await editor();

@@ -1,9 +1,9 @@
 // Export review renders from the exact renderer used in the composer.
 // NODE_PATH must resolve Playwright; COMPOSER_URL can override the local preview.
-const {chromium}=require('playwright');
+const { launchBrowser } = require('./test-support.cjs');
 const fs=require('node:fs');const path=require('node:path');
 const sampleSets=require('./horoscope-samples.json');
-(async()=>{const browser=await chromium.launch({channel:'chrome',headless:true});try{
+(async()=>{const browser=await launchBrowser();try{
  const page=await browser.newPage();await page.goto(process.env.COMPOSER_URL||'http://127.0.0.1:8089/');
  const dir=path.resolve(__dirname,'../exports/daily-horoscope');fs.mkdirSync(dir,{recursive:true});
  const edition=process.env.HOROSCOPE_DATA?JSON.parse(fs.readFileSync(process.env.HOROSCOPE_DATA,'utf8')):null;

@@ -1,0 +1,347 @@
+{
+  "format": "social-composer-ui-assets",
+  "version": 1,
+  "generator": {
+    "thumbnailEdge": 192,
+    "brandEdge": 64,
+    "faviconEdge": 32,
+    "webpQuality": 0.9,
+    "browser": "156.0.8078.80"
+  },
+  "renditions": {
+    "brands/current/expenses-icon.png": {
+      "src": "assets/ui/expenses-icon.webp",
+      "width": 192,
+      "height": 192,
+      "bytes": 8098,
+      "transparent": true,
+      "source": "brands/current/expenses-icon.png",
+      "sourceBytes": 1799056,
+      "sourceWidth": 1254,
+      "sourceHeight": 1254
+    },
+    "brands/current/expenses-mark.png": {
+      "src": "assets/ui/expenses-mark.webp",
+      "width": 178,
+      "height": 192,
+      "bytes": 7948,
+      "transparent": true,
+      "source": "brands/current/expenses-mark.png",
+      "sourceBytes": 375441,
+      "sourceWidth": 740,
+      "sourceHeight": 800
+    },
+    "brands/current/expenses-wordmark-light.png": {
+      "src": "assets/ui/expenses-wordmark-light.webp",
+      "width": 192,
+      "height": 61,
+      "bytes": 4298,
+      "transparent": true,
+      "source": "brands/current/expenses-wordmark-light.png",
+      "sourceBytes": 21718,
+      "sourceWidth": 724,
+      "sourceHeight": 230
+    },
+    "brands/current/expenses-wordmark-dark.png": {
+      "src": "assets/ui/expenses-wordmark-dark.webp",
+      "width": 192,
+      "height": 61,
+      "bytes": 4078,
+      "transparent": true,
+      "source": "brands/current/expenses-wordmark-dark.png",
+      "sourceBytes": 22094,
+      "sourceWidth": 724,
+      "sourceHeight": 230
+    },
+    "brands/current/expenses-lockup-light.png": {
+      "src": "assets/ui/expenses-lockup-light.webp",
+      "width": 192,
+      "height": 52,
+      "bytes": 4114,
+      "transparent": true,
+      "source": "brands/current/expenses-lockup-light.png",
+      "sourceBytes": 135253,
+      "sourceWidth": 964,
+      "sourceHeight": 260
+    },
+    "brands/current/expenses-lockup-dark.png": {
+      "src": "assets/ui/expenses-lockup-dark.webp",
+      "width": 192,
+      "height": 52,
+      "bytes": 4116,
+      "transparent": true,
+      "source": "brands/current/expenses-lockup-dark.png",
+      "sourceBytes": 135703,
+      "sourceWidth": 964,
+      "sourceHeight": 260
+    },
+    "brands/current/aura-icon.png": {
+      "src": "assets/ui/aura-icon.webp",
+      "width": 192,
+      "height": 192,
+      "bytes": 11638,
+      "transparent": true,
+      "source": "brands/current/aura-icon.png",
+      "sourceBytes": 1618622,
+      "sourceWidth": 1254,
+      "sourceHeight": 1254
+    },
+    "brands/current/aura-mark.png": {
+      "src": "assets/ui/aura-mark.webp",
+      "width": 192,
+      "height": 171,
+      "bytes": 13238,
+      "transparent": true,
+      "source": "brands/current/aura-mark.png",
+      "sourceBytes": 1005817,
+      "sourceWidth": 870,
+      "sourceHeight": 775
+    },
+    "brands/current/aura-wordmark-light.png": {
+      "src": "assets/ui/aura-wordmark-light.webp",
+      "width": 192,
+      "height": 86,
+      "bytes": 3106,
+      "transparent": true,
+      "source": "brands/current/aura-wordmark-light.png",
+      "sourceBytes": 15986,
+      "sourceWidth": 514,
+      "sourceHeight": 230
+    },
+    "brands/current/aura-wordmark-dark.png": {
+      "src": "assets/ui/aura-wordmark-dark.webp",
+      "width": 192,
+      "height": 86,
+      "bytes": 3492,
+      "transparent": true,
+      "source": "brands/current/aura-wordmark-dark.png",
+      "sourceBytes": 17297,
+      "sourceWidth": 514,
+      "sourceHeight": 230
+    },
+    "brands/current/aura-lockup-light.png": {
+      "src": "assets/ui/aura-lockup-light.webp",
+      "width": 192,
+      "height": 66,
+      "bytes": 4978,
+      "transparent": true,
+      "source": "brands/current/aura-lockup-light.png",
+      "sourceBytes": 136108,
+      "sourceWidth": 754,
+      "sourceHeight": 260
+    },
+    "brands/current/aura-lockup-dark.png": {
+      "src": "assets/ui/aura-lockup-dark.webp",
+      "width": 192,
+      "height": 66,
+      "bytes": 5254,
+      "transparent": true,
+      "source": "brands/current/aura-lockup-dark.png",
+      "sourceBytes": 137655,
+      "sourceWidth": 754,
+      "sourceHeight": 260
+    },
+    "brands/current/lumen-icon.png": {
+      "src": "assets/ui/lumen-icon.webp",
+      "width": 192,
+      "height": 192,
+      "bytes": 16702,
+      "transparent": true,
+      "source": "brands/current/lumen-icon.png",
+      "sourceBytes": 2102033,
+      "sourceWidth": 1254,
+      "sourceHeight": 1254
+    },
+    "brands/current/lumen-mark.png": {
+      "src": "assets/ui/lumen-mark.webp",
+      "width": 157,
+      "height": 192,
+      "bytes": 7460,
+      "transparent": true,
+      "source": "brands/current/lumen-mark.png",
+      "sourceBytes": 130791,
+      "sourceWidth": 310,
+      "sourceHeight": 380
+    },
+    "brands/current/lumen-wordmark-light.png": {
+      "src": "assets/ui/lumen-wordmark-light.webp",
+      "width": 192,
+      "height": 88,
+      "bytes": 2250,
+      "transparent": true,
+      "source": "brands/current/lumen-wordmark-light.png",
+      "sourceBytes": 9824,
+      "sourceWidth": 503,
+      "sourceHeight": 230
+    },
+    "brands/current/lumen-wordmark-dark.png": {
+      "src": "assets/ui/lumen-wordmark-dark.webp",
+      "width": 192,
+      "height": 88,
+      "bytes": 2560,
+      "transparent": true,
+      "source": "brands/current/lumen-wordmark-dark.png",
+      "sourceBytes": 10400,
+      "sourceWidth": 503,
+      "sourceHeight": 230
+    },
+    "brands/current/lumen-lockup-light.png": {
+      "src": "assets/ui/lumen-lockup-light.webp",
+      "width": 192,
+      "height": 67,
+      "bytes": 6010,
+      "transparent": true,
+      "source": "brands/current/lumen-lockup-light.png",
+      "sourceBytes": 160524,
+      "sourceWidth": 743,
+      "sourceHeight": 260
+    },
+    "brands/current/lumen-lockup-dark.png": {
+      "src": "assets/ui/lumen-lockup-dark.webp",
+      "width": 192,
+      "height": 67,
+      "bytes": 6078,
+      "transparent": true,
+      "source": "brands/current/lumen-lockup-dark.png",
+      "sourceBytes": 161391,
+      "sourceWidth": 743,
+      "sourceHeight": 260
+    },
+    "brands/current/glitchlabs-icon.png": {
+      "src": "assets/ui/glitchlabs-icon.webp",
+      "width": 192,
+      "height": 192,
+      "bytes": 10382,
+      "transparent": true,
+      "source": "brands/current/glitchlabs-icon.png",
+      "sourceBytes": 1859777,
+      "sourceWidth": 1254,
+      "sourceHeight": 1254
+    },
+    "brands/current/glitchlabs-mark.png": {
+      "src": "assets/ui/glitchlabs-mark.webp",
+      "width": 192,
+      "height": 185,
+      "bytes": 10212,
+      "transparent": true,
+      "source": "brands/current/glitchlabs-mark.png",
+      "sourceBytes": 209064,
+      "sourceWidth": 790,
+      "sourceHeight": 760
+    },
+    "brands/current/glitchlabs-wordmark-light.png": {
+      "src": "assets/ui/glitchlabs-wordmark-light.webp",
+      "width": 192,
+      "height": 52,
+      "bytes": 3848,
+      "transparent": true,
+      "source": "brands/current/glitchlabs-wordmark-light.png",
+      "sourceBytes": 22871,
+      "sourceWidth": 850,
+      "sourceHeight": 230
+    },
+    "brands/current/glitchlabs-wordmark-dark.png": {
+      "src": "assets/ui/glitchlabs-wordmark-dark.webp",
+      "width": 192,
+      "height": 52,
+      "bytes": 3306,
+      "transparent": true,
+      "source": "brands/current/glitchlabs-wordmark-dark.png",
+      "sourceBytes": 22902,
+      "sourceWidth": 850,
+      "sourceHeight": 230
+    },
+    "brands/current/glitchlabs-lockup-light.png": {
+      "src": "assets/ui/glitchlabs-lockup-light.webp",
+      "width": 192,
+      "height": 46,
+      "bytes": 4158,
+      "transparent": true,
+      "source": "brands/current/glitchlabs-lockup-light.png",
+      "sourceBytes": 149677,
+      "sourceWidth": 1090,
+      "sourceHeight": 260
+    },
+    "brands/current/glitchlabs-lockup-dark.png": {
+      "src": "assets/ui/glitchlabs-lockup-dark.webp",
+      "width": 192,
+      "height": 46,
+      "bytes": 3790,
+      "transparent": true,
+      "source": "brands/current/glitchlabs-lockup-dark.png",
+      "sourceBytes": 149568,
+      "sourceWidth": 1090,
+      "sourceHeight": 260
+    }
+  },
+  "brandIcons": {
+    "expenses": {
+      "src": "assets/ui/expenses-brand.webp",
+      "width": 64,
+      "height": 64,
+      "bytes": 2550,
+      "transparent": true,
+      "source": "brands/current/expenses-icon.png",
+      "sourceBytes": 1799056,
+      "sourceWidth": 1254,
+      "sourceHeight": 1254
+    },
+    "aura": {
+      "src": "assets/ui/aura-brand.webp",
+      "width": 64,
+      "height": 64,
+      "bytes": 2998,
+      "transparent": true,
+      "source": "brands/current/aura-icon.png",
+      "sourceBytes": 1618622,
+      "sourceWidth": 1254,
+      "sourceHeight": 1254
+    },
+    "lumen": {
+      "src": "assets/ui/lumen-brand.webp",
+      "width": 64,
+      "height": 64,
+      "bytes": 3890,
+      "transparent": true,
+      "source": "brands/current/lumen-icon.png",
+      "sourceBytes": 2102033,
+      "sourceWidth": 1254,
+      "sourceHeight": 1254
+    },
+    "glitchlabs": {
+      "src": "assets/ui/glitchlabs-brand.webp",
+      "width": 64,
+      "height": 64,
+      "bytes": 2850,
+      "transparent": true,
+      "source": "brands/current/glitchlabs-icon.png",
+      "sourceBytes": 1859777,
+      "sourceWidth": 1254,
+      "sourceHeight": 1254
+    }
+  },
+  "favicon": {
+    "src": "assets/ui/favicon.png",
+    "width": 32,
+    "height": 32,
+    "bytes": 2737,
+    "transparent": true,
+    "source": "brands/current/glitchlabs-icon.png",
+    "sourceBytes": 1859777,
+    "sourceWidth": 1254,
+    "sourceHeight": 1254
+  },
+  "totals": {
+    "sourceFiles": 24,
+    "sourceBytes": 10409572,
+    "sourceDecodedBytes": 45251576,
+    "thumbnailFiles": 24,
+    "thumbnailBytes": 151114,
+    "brandFiles": 4,
+    "brandBytes": 12288,
+    "faviconBytes": 2737,
+    "generatedFiles": 29,
+    "generatedBytes": 166139,
+    "generatedDecodedBytes": 1985792
+  }
+}

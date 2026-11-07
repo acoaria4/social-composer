@@ -11,7 +11,7 @@
       ["icon", "App icon"], ["mark", id === "lumen" ? "Gold spark" : "Transparent mark"],
       ["wordmark-light", "Wordmark · light"], ["wordmark-dark", "Wordmark · dark"],
       ["lockup-light", "Icon + name · light"], ["lockup-dark", "Icon + name · dark"],
-    ].map(([variant, label]) => ({id: `${id}-${variant}`, label, src: `brands/current/${id}-${variant}.png`})),
+    ].map(([variant, label]) => ({id: `${id}-${variant}`, label, src: `brands/current/${id}-${variant}.png`, previewSrc: `assets/ui/${id}-${variant}.webp`})),
   }));
   // Keep saved layouts usable, but resolve their old identifiers to current artwork.
   const LEGACY_ASSETS = {
@@ -94,6 +94,7 @@
   );
 
   const ctx = els.canvas.getContext("2d");
+  const { canvasFromSource, sourceToDataUrl, backgroundToDataUrl } = window.ComposerCanvasIO;
 
   /** @type {Map<string, HTMLImageElement>} */
   const assetImages = new Map();
@@ -132,6 +133,13 @@
     assetLabels: new Map(BRANDS.flatMap(group => group.assets.map(asset => [asset.id, asset.label]))),
   };
 
+  const documentModel = window.ComposerDocumentModel.create(state, { images: assetImages, encode: sourceToDataUrl });
+  const renderScheduler = window.ComposerRenderScheduler.create(draw);
+  const { capture: captureDocument, copyValue, copyOverlay, portableImage, retainedBytes: historyRetainedBytes } = documentModel;
+  const builtinSources = new Map(BRANDS.flatMap(group => group.assets.map(asset => [asset.id, asset.src])));
+  const assetStore = window.ComposerAssetStore.create({ images: assetImages, aliases: LEGACY_ASSETS,
+    sourceFor: id => builtinSources.get(id) || state.customAssets.find(asset => asset.id === id)?.dataUrl });
+
   let textTools;
   let viewport;
   let layerTools;
@@ -149,9 +157,6 @@
   let recoveryTimer;
   let recoveryRevision = 0;
   let sessionFeedbackVersion = 0;
-  const imageIds = new WeakMap();
-  const rasterCopies = new WeakMap();
-  let imageSequence = 0;
   let lumenFormat = "1080x1920";
   const lumenActive = () => document.querySelector('[data-brand="lumen"]').getAttribute("aria-pressed") === "true";
   const auraActive = () => document.querySelector('[data-brand="aura"]').getAttribute("aria-pressed") === "true";
@@ -159,8 +164,11 @@
   let customSeq = 1;
   let createdSeq = 1;
   let documentRevision = 0;
+  let assetInsertQueue = Promise.resolve();
 
   function beginDocumentOperation(owner = "editor") {
+    renderScheduler.flush();
+    assetInsertQueue = Promise.resolve();
     const ticket = ++documentRevision;
     document.dispatchEvent(new CustomEvent("composer:document-operation", { detail: { owner } }));
     return ticket;
@@ -184,65 +192,6 @@
     return state.snapToGrid ? snap(v) : Math.round(v);
   }
 
-  const copyValue = value => value == null ? null : JSON.parse(JSON.stringify(value));
-  function copyOverlay(overlay) {
-    return {
-      id: overlay.id, type: overlay.type, assetId: overlay.assetId, text: overlay.text,
-      x: overlay.x, y: overlay.y, width: overlay.width, height: overlay.height,
-      hidden: Boolean(overlay.hidden), locked: Boolean(overlay.locked),
-    };
-  }
-
-  function imageIdentity(image) {
-    if (!image) return 0;
-    if (!imageIds.has(image)) imageIds.set(image, ++imageSequence);
-    return imageIds.get(image);
-  }
-
-  function portableImage(image) {
-    if (!rasterCopies.has(image)) rasterCopies.set(image, sourceToDataUrl(image, "image/png"));
-    return rasterCopies.get(image);
-  }
-
-  function historyRetainedBytes(snapshots) {
-    const images = new Set();
-    for (const snapshot of snapshots) {
-      if (snapshot.bgImage) images.add(snapshot.bgImage);
-      for (const image of snapshot.images.values()) images.add(image);
-    }
-    let bytes = 0;
-    for (const image of images) {
-      bytes += (image.naturalWidth || image.width) * (image.naturalHeight || image.height) * 4;
-      bytes += (rasterCopies.get(image)?.length || 0) * 2;
-    }
-    return bytes;
-  }
-
-  function captureDocument() {
-    const overlays = state.overlays.map(copyOverlay);
-    const images = new Map();
-    const labels = new Map();
-    for (const layer of overlays) {
-      if (layer.type === "text") continue;
-      if (assetImages.has(layer.assetId)) images.set(layer.assetId, assetImages.get(layer.assetId));
-      labels.set(layer.assetId, state.assetLabels.get(layer.assetId) || layer.assetId);
-    }
-    const snapshot = {
-      bgImage: state.bgImage, postDate: state.postDate, auraPostType: state.auraPostType,
-      templateBrand: state.templateBrand, templateSource: copyValue(state.templateSource),
-      presetKey: state.presetKey, textStyles: window.ComposerText.normalize(state.textStyles),
-      overlays, images, labels, selectedId: state.selectedId, tintHex: state.tintHex,
-    };
-    snapshot.key = JSON.stringify({
-      background: imageIdentity(snapshot.bgImage), postDate: snapshot.postDate, auraPostType: snapshot.auraPostType,
-      templateBrand: snapshot.templateBrand, templateSource: snapshot.templateSource, presetKey: snapshot.presetKey,
-      textStyles: snapshot.textStyles,
-      overlays: overlays.map(layer => layer.type === "text" ? { ...layer, height: undefined } : layer),
-      images: [...images].map(([id, image]) => [id, imageIdentity(image)]),
-    });
-    return snapshot;
-  }
-
   function updateDocumentStatus() {
     document.getElementById("btn-undo").disabled = !history?.canUndo();
     document.getElementById("btn-redo").disabled = !history?.canRedo();
@@ -261,15 +210,52 @@
     if (!historyReady || historyApplying) return;
     history.record(documentGroup(group));
     updateDocumentStatus();
+    pruneAssets();
   }
 
-  function documentChanged() {
-    lastDocumentKey = captureDocument().key;
+  function pruneAssets() {
+    const keep = new Set(state.overlays.filter(layer => layer.type !== "text").map(layer => layer.assetId));
+    if (state.tintPanelOpen) { keep.add(TINT_SOURCE_ID); keep.add(CUSTOM_COLOR_ID); }
+    assetStore.prune(keep);
+    for (const id of state.assetLabels.keys()) if (id.startsWith("project-") && !keep.has(id)) state.assetLabels.delete(id);
+  }
+
+  function requestDraw() {
+    renderScheduler.request();
+  }
+
+  function insertAsset(assetId, canvasX, canvasY) {
+    if (!state.bgImage) { els.meta.textContent = "Upload a background first"; return Promise.resolve(false); }
+    const ticket = documentRevision, background = state.bgImage;
+    const custom = state.customAssets.find(asset => asset.id === assetId);
+    const resource = assetStore.load(assetId).then(image => ({ image }), error => ({ error }));
+    const operation = assetInsertQueue.then(async () => {
+      const result = await resource;
+      if (!currentDocumentOperation(ticket) || state.bgImage !== background) return false;
+      if (custom && !state.customAssets.includes(custom)) return false;
+      if (result.error) throw result.error;
+      assetImages.set(assetId, result.image);
+      addOverlay(assetId, canvasX, canvasY);
+      return true;
+    }).catch(error => {
+      if (currentDocumentOperation(ticket)) {
+        ++sessionFeedbackVersion;
+        document.getElementById("session-status").textContent = `${error.message} Select the asset to retry.`;
+      }
+      return false;
+    }).finally(pruneAssets);
+    assetInsertQueue = operation;
+    return operation;
+  }
+
+  function documentChanged({ snapshot } = {}) {
+    const current = snapshot || captureDocument();
+    lastDocumentKey = current.key;
     sessionEdited = true;
     recoveryCandidate = null;
     document.getElementById("recovery-banner").hidden = true;
     updateDocumentStatus();
-    scheduleRecovery();
+    scheduleRecovery(current);
   }
 
   function applyHistory(snapshot) {
@@ -292,7 +278,7 @@
     const tintImage = snapshot.images.get(CUSTOM_COLOR_ID);
     if (tintImage) {
       const chip = document.querySelector("#chip-custom-color .asset-thumb img");
-      if (chip) chip.src = sourceToDataUrl(tintImage, "image/png");
+      if (chip) chip.src = window.ComposerCanvasIO.previewDataUrl(tintImage);
     } else if (assetImages.has(TINT_SOURCE_ID)) applyTintColor(snapshot.tintHex, { persist: false });
     els.preset.value = state.presetKey;
     if (state.templateBrand === "lumen") lumenFormat = state.presetKey;
@@ -303,6 +289,7 @@
     draw();
     historyApplying = false;
     lastDocumentKey = snapshot.key;
+    pruneAssets();
     textTools?.loadFonts();
   }
 
@@ -326,13 +313,13 @@
     return window.ComposerSession.validateProject({ format: "social-composer-project", version: 1, composition, forms });
   }
 
-  function scheduleRecovery() {
+  function scheduleRecovery(snapshot = captureDocument()) {
     if (!recoveryReady || recoveryCandidate) return;
     const version = ++recoveryRevision;
     const feedbackVersion = sessionFeedbackVersion;
     clearTimeout(recoveryTimer);
     document.getElementById("session-status").textContent = "Saving recovery draft…";
-    const snapshot = captureDocument(), forms = window.ComposerTemplateState.captureForms();
+    const forms = window.ComposerTemplateState.captureForms();
     recoveryTimer = setTimeout(async () => {
       try {
         const project = portableProject(snapshot, forms);
@@ -875,7 +862,7 @@
         const left = it.handle.endsWith("w");
         ov.width = Math.max(48, Math.round(it.origW + (left ? -dx : dx)));
         if (left) ov.x = Math.round(it.origX + it.origW - ov.width);
-        draw();
+        requestDraw();
         return;
       }
       const aspect = it.aspect;
@@ -924,12 +911,18 @@
       ov.height = Math.round(h);
     }
 
-    draw();
+    requestDraw();
   }
 
   function endInteraction() {
+    renderScheduler.flush();
     state.interaction = null;
     history?.endGroup();
+  }
+
+  function stepHistory(redo = false) {
+    endInteraction();
+    return redo ? history?.redo() : history?.undo();
   }
 
   function renderExportCanvas() {
@@ -964,6 +957,7 @@
       : state.templateBrand === "lumen" ? `lumen-fact-${state.width}x${state.height}.png`
       : `glitch-compose-${slug}-${state.width}x${state.height}.png`;
     out.toBlob((blob) => {
+      out.width = out.height = 0;
       if (!blob) return;
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
@@ -973,46 +967,10 @@
     }, "image/png");
   }
 
-  function canvasFromSource(source, willReadFrequently = false) {
-    const w = source.naturalWidth || source.width;
-    const h = source.naturalHeight || source.height;
-    if (!w || !h) throw new Error("Invalid image source");
-    const c = document.createElement("canvas");
-    c.width = w;
-    c.height = h;
-    c.getContext("2d", { willReadFrequently }).drawImage(source, 0, 0);
-    return c;
-  }
-
-  function sourceToDataUrl(source, type = "image/png", quality) {
-    const c = canvasFromSource(source);
-    return quality != null ? c.toDataURL(type, quality) : c.toDataURL(type);
-  }
-
-  function backgroundToDataUrl(source) {
-    const canvas = canvasFromSource(source, true);
-    const context = canvas.getContext("2d");
-    // Scan in strips so checking a large image does not allocate another full bitmap.
-    for (let y = 0; y < canvas.height; y += 64) {
-      const pixels = context.getImageData(0, y, canvas.width, Math.min(64, canvas.height - y)).data;
-      for (let alpha = 3; alpha < pixels.length; alpha += 4) {
-        if (pixels[alpha] !== 255) return canvas.toDataURL("image/png");
-      }
-    }
-    return canvas.toDataURL("image/jpeg", 0.88);
-  }
-
   function makeThumbDataUrl() {
     const out = renderExportCanvas();
-    const maxEdge = 320;
-    const scale = Math.min(1, maxEdge / Math.max(out.width, out.height));
-    const tw = Math.max(1, Math.round(out.width * scale));
-    const th = Math.max(1, Math.round(out.height * scale));
-    const t = document.createElement("canvas");
-    t.width = tw;
-    t.height = th;
-    t.getContext("2d").drawImage(out, 0, 0, tw, th);
-    return t.toDataURL("image/jpeg", 0.82);
+    try { return window.ComposerCanvasIO.makeThumbnail(out); }
+    finally { out.width = out.height = 0; }
   }
 
   function needsAssetSnapshot(assetId) {
@@ -1307,6 +1265,12 @@
         checkProjectPixels(img);
         restoredImages.set(assetId, img);
       }
+      for (const layer of comp.overlays || []) {
+        if (layer.type === "text" || layer.assetId === CUSTOM_COLOR_ID || restoredImages.has(layer.assetId)) continue;
+        const image = await assetStore.load(layer.assetId);
+        if (!currentDocumentOperation(ticket)) { pruneAssets(); return false; }
+        restoredImages.set(layer.assetId, image);
+      }
 
       const textStyles = window.ComposerText.normalize(comp.textStyles);
       let fontWarning = false;
@@ -1318,8 +1282,8 @@
       if (!currentDocumentOperation(ticket)) return false;
 
       const tint = typeof comp.tintHex === "string" ? parseHex(comp.tintHex) : null;
-      let tintPreview = comp.assetDataUrls?.[CUSTOM_COLOR_ID] || null;
-      if (tint && !restoredImages.has(CUSTOM_COLOR_ID)) {
+      let tintPreview = restoredImages.has(CUSTOM_COLOR_ID) ? window.ComposerCanvasIO.previewDataUrl(restoredImages.get(CUSTOM_COLOR_ID)) : null;
+      if (tint && !restoredImages.has(CUSTOM_COLOR_ID) && (state.tintPanelOpen || comp.overlays.some(layer => layer.assetId === CUSTOM_COLOR_ID))) {
         let source = assetImages.get(TINT_SOURCE_ID);
         if (!source) {
           source = await loadImageUrl("brands/current/expenses-mark.png");
@@ -1327,7 +1291,7 @@
           restoredImages.set(TINT_SOURCE_ID, source);
         }
         const tinted = tintSourceImage(source, tint.r, tint.g, tint.b);
-        tintPreview = tinted.toDataURL("image/png");
+        tintPreview = window.ComposerCanvasIO.previewDataUrl(tinted);
         restoredImages.set(CUSTOM_COLOR_ID, tinted);
       }
 
@@ -1338,6 +1302,7 @@
         let sequence = 0;
         for (const assetId of restoredImages.keys()) aliases.set(assetId, `project-${ticket}-${++sequence}`);
       }
+      let customCandidate = state.customAssets;
       for (const [assetId, image] of restoredImages) {
         const mappedId = aliases.get(assetId) || assetId;
         assetImages.set(mappedId, image);
@@ -1345,9 +1310,10 @@
         if (options.portable) continue;
         if (!assetId.startsWith("custom-")) continue;
         const dataUrl = comp.assetDataUrls[assetId];
-        const existing = state.customAssets.find(asset => asset.id === assetId);
-        if (existing) existing.dataUrl = dataUrl;
-        else state.customAssets.push({ id: assetId, label: "Restored asset", dataUrl });
+        const existing = customCandidate.find(asset => asset.id === assetId);
+        if (existing?.dataUrl === dataUrl) continue;
+        customCandidate = existing ? customCandidate.map(asset => asset.id === assetId ? { ...asset, dataUrl } : asset)
+          : [...customCandidate, { id: assetId, label: "Restored asset", dataUrl }];
       }
       if (options.portable && restoredImages.has(CUSTOM_COLOR_ID)) assetImages.set(CUSTOM_COLOR_ID, restoredImages.get(CUSTOM_COLOR_ID));
       if (tint) {
@@ -1390,7 +1356,11 @@
       recomputeCanvasSize();
       viewport?.reset();
       fitCanvasElement();
-      saveCustomAssets();
+      if (customCandidate !== state.customAssets) {
+        if (customCandidate.length <= CUSTOM_MAX_COUNT && customEncodedBytes(customCandidate) <= CUSTOM_MAX_BYTES) {
+          if (saveCustomAssets(customCandidate)) state.customAssets = customCandidate;
+        } else reportCustomStatus("The restored canvas is ready. Its images stay in this design because the custom library is full.");
+      }
       renderCustomPane();
       draw();
       if (options.markSaved !== false) {
@@ -1399,12 +1369,13 @@
         updateDocumentStatus();
       }
       els.meta.textContent = fontWarning
-        ? `Restored “${pic.label}” with fallback fonts because a font could not load.`
+      ? `Restored “${pic.label}” with fallback fonts because a font could not load.`
         : `Restored “${pic.label}”`;
       els.meta.textContent += ` · ${state.overlays.filter(layer => layer.type !== "text").length} marks · ${state.overlays.filter(layer => layer.type === "text").length} text boxes`;
       return true;
     } catch (err) {
       if (currentDocumentOperation(ticket)) els.meta.textContent = err.message || "Could not restore composition";
+      pruneAssets();
       return false;
     }
   }
@@ -1475,10 +1446,15 @@
     btn.dataset.assetId = asset.id;
     btn.title = `Add ${asset.label}`;
     btn.innerHTML = `
-      <span class="asset-thumb"><img alt="" src="${asset.src}" /></span>
+      <span class="asset-thumb"><img alt="" loading="lazy" decoding="async" /></span>
       <span class="asset-label"></span>
     `;
     btn.querySelector(".asset-label").textContent = asset.label;
+    const thumbnail = btn.querySelector("img");
+    if (removable && !asset.previewSrc) thumbnail.addEventListener("load", () => {
+      if (Math.max(thumbnail.naturalWidth, thumbnail.naturalHeight) > 192) thumbnail.src = window.ComposerCanvasIO.previewDataUrl(thumbnail);
+    }, { once: true });
+    thumbnail.src = asset.previewSrc || asset.src;
 
     let container = btn;
     if (removable) {
@@ -1493,8 +1469,7 @@
       remove.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        removeCustomAsset(asset.id);
-        (els.customGrid.querySelector(".asset-chip") || document.getElementById("btn-upload-asset")).focus();
+        if (removeCustomAsset(asset.id)) (els.customGrid.querySelector(".asset-chip") || document.getElementById("btn-upload-asset")).focus();
       });
       container.append(btn, remove);
     }
@@ -1505,7 +1480,7 @@
       e.dataTransfer.effectAllowed = "copy";
     });
 
-    btn.addEventListener("click", (e) => {
+    btn.addEventListener("click", async (e) => {
       if (e.target.closest(".asset-chip-remove")) return;
 
       if (asset.id === CUSTOM_COLOR_ID) {
@@ -1517,6 +1492,7 @@
           els.meta.textContent = "Upload a background first";
           return;
         }
+        if (!assetImages.has(CUSTOM_COLOR_ID)) return;
         addOverlay(asset.id);
         return;
       }
@@ -1526,7 +1502,10 @@
         els.meta.textContent = "Upload a background first";
         return;
       }
-      addOverlay(asset.id);
+      btn.disabled = true;
+      btn.setAttribute("aria-busy", "true");
+      try { await insertAsset(asset.id); }
+      finally { btn.disabled = false; btn.removeAttribute("aria-busy"); }
     });
 
     return container;
@@ -1536,21 +1515,35 @@
     const tinted = assetImages.get(CUSTOM_COLOR_ID);
     if (tinted instanceof HTMLCanvasElement) {
       try {
-        return tinted.toDataURL("image/png");
+        return window.ComposerCanvasIO.previewDataUrl(tinted);
       } catch {
-        return "brands/expenses-icon-darker.png";
+        return "assets/ui/expenses-mark.webp";
       }
     }
     if (tinted && tinted.src) return tinted.src;
-    return "brands/expenses-icon-darker.png";
+    return "assets/ui/expenses-mark.webp";
   }
 
-  function openTintPanel() {
+  async function openTintPanel() {
     state.tintPanelOpen = true;
     if (els.tintPanel) els.tintPanel.hidden = false;
     const chip = document.getElementById("chip-custom-color");
-    if (chip) chip.classList.add("is-selected");
-    applyTintColor(state.tintHex || loadStoredTintHex(), { persist: false });
+    if (chip) { chip.classList.add("is-selected"); chip.disabled = true; }
+    const controls = [els.tintHex, els.tintR, els.tintG, els.tintB, els.tintInsert, els.tintReset];
+    controls.forEach(control => { control.disabled = true; });
+    if (chip) chip.setAttribute("aria-busy", "true");
+    try {
+      await assetStore.load(TINT_SOURCE_ID);
+      if (state.tintPanelOpen) applyTintColor(state.tintHex || loadStoredTintHex(), { persist: false });
+    } catch (error) {
+      ++sessionFeedbackVersion;
+      document.getElementById("session-status").textContent = `${error.message} Reopen Custom Color to retry.`;
+      closeTintPanel();
+    } finally {
+      controls.forEach(control => { control.disabled = false; });
+      if (chip) { chip.disabled = false; chip.removeAttribute("aria-busy"); }
+      pruneAssets();
+    }
   }
 
   function closeTintPanel() {
@@ -1558,6 +1551,7 @@
     if (els.tintPanel) els.tintPanel.hidden = true;
     const chip = document.getElementById("chip-custom-color");
     if (chip) chip.classList.remove("is-selected");
+    pruneAssets();
   }
 
   function buildAssetPane() {
@@ -1567,8 +1561,6 @@
       root.replaceChildren();
       for (const asset of group.assets) {
         const chip = buildAssetChip(asset);
-        chip.disabled = !assetImages.has(asset.id);
-        if (chip.disabled) chip.title = `${asset.label} could not load. Reload to retry.`;
         root.appendChild(chip);
       }
       if (group.group === "expenses") {
@@ -1701,9 +1693,17 @@
   }
 
   function applyTintColor(hex, { persist = true } = {}) {
-    if (!historyApplying && hex !== state.tintHex && state.overlays.some(layer => layer.assetId === CUSTOM_COLOR_ID && layer.locked)) {
+    const normalized = parseHex(hex);
+    if (!normalized) return false;
+    if (!historyApplying && normalized.hex !== state.tintHex && state.overlays.some(layer => layer.assetId === CUSTOM_COLOR_ID && layer.locked)) {
       els.meta.textContent = "Unlock tinted layers before changing their shared color.";
       return false;
+    }
+    if (!historyApplying && normalized.hex === state.tintHex && assetImages.has(CUSTOM_COLOR_ID)) {
+      const chip = document.querySelector("#chip-custom-color .asset-thumb img");
+      if (chip) chip.src = window.ComposerCanvasIO.previewDataUrl(assetImages.get(CUSTOM_COLOR_ID));
+      if (persist) saveTintHex(normalized.hex);
+      return true;
     }
     const parsed = syncTintControls(hex);
     if (!parsed) return false;
@@ -1723,7 +1723,7 @@
 
     let dataUrl = "";
     try {
-      dataUrl = canvas.toDataURL("image/png");
+      dataUrl = window.ComposerCanvasIO.previewDataUrl(canvas);
     } catch {
       els.meta.textContent = "Could not export tinted icon (try via local server)";
       return false;
@@ -1808,15 +1808,23 @@
     }
   }
 
-  function customEncodedBytes() {
-    return state.customAssets.reduce((sum, a) => sum + (a.dataUrl?.length || 0), 0);
+  function customEncodedBytes(assets = state.customAssets) {
+    return assets.reduce((sum, a) => sum + (a.dataUrl?.length || 0), 0);
   }
 
-  function saveCustomAssets() {
+  function reportCustomStatus(message) {
+    const status = document.getElementById("custom-status");
+    status.hidden = false;
+    status.textContent = message;
+  }
+
+  function saveCustomAssets(assets = state.customAssets) {
     try {
-      localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(state.customAssets));
+      localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(assets));
+      return true;
     } catch (err) {
-      els.meta.textContent = "Could not save custom assets in this browser";
+      reportCustomStatus("Browser storage is unavailable. Your custom library was kept. Retry when storage is available.");
+      return false;
     }
   }
 
@@ -1876,11 +1884,6 @@
     }
   }
 
-  async function preloadCustomAsset(asset) {
-    const img = await loadImageUrl(asset.dataUrl);
-    assetImages.set(asset.id, img);
-  }
-
   async function addCustomFiles(fileList) {
     const files = Array.from(fileList || []).filter((f) =>
       f.type.startsWith("image/")
@@ -1889,13 +1892,13 @@
 
     for (const file of files) {
       if (state.customAssets.length >= CUSTOM_MAX_COUNT) {
-        els.meta.textContent = `Custom library full (${CUSTOM_MAX_COUNT} max)`;
+        reportCustomStatus(`Custom library full (${CUSTOM_MAX_COUNT} max). Remove an unused asset before uploading another. Existing assets were kept.`);
         break;
       }
 
       const dataUrl = await readFileAsDataUrl(file);
       if (customEncodedBytes() + dataUrl.length > CUSTOM_MAX_BYTES) {
-        els.meta.textContent = "Custom assets exceed 2MB browser limit";
+        reportCustomStatus("Custom assets exceed the 2 MB browser limit. Use a smaller image; existing assets were kept.");
         break;
       }
 
@@ -1907,44 +1910,39 @@
       };
 
       try {
-        await preloadCustomAsset(asset);
+        await loadImageUrl(asset.dataUrl);
       } catch {
-        els.meta.textContent = `Could not load ${file.name}`;
+        reportCustomStatus(`Could not load ${file.name}. Choose a valid image to retry.`);
         continue;
       }
 
-      state.customAssets.push(asset);
-      els.meta.textContent = `Added “${asset.label}” to Custom`;
+      const candidate = [...state.customAssets, asset];
+      if (candidate.length > CUSTOM_MAX_COUNT || customEncodedBytes(candidate) > CUSTOM_MAX_BYTES) {
+        reportCustomStatus("The custom library limit was reached. Existing assets were kept.");
+        break;
+      }
+      if (!saveCustomAssets(candidate)) break;
+      state.customAssets = candidate;
+      reportCustomStatus(`Added “${asset.label}” to Custom in this browser.`);
     }
 
-    saveCustomAssets();
     renderCustomPane();
+    pruneAssets();
   }
 
   function removeCustomAsset(assetId) {
-    state.customAssets = state.customAssets.filter((a) => a.id !== assetId);
+    const candidate = state.customAssets.filter((a) => a.id !== assetId);
+    if (!saveCustomAssets(candidate)) return false;
+    state.customAssets = candidate;
     if (!state.overlays.some(layer => layer.assetId === assetId && layer.locked)) assetImages.delete(assetId);
     state.overlays = state.overlays.filter((o) => o.assetId !== assetId || o.locked);
     if (state.selectedId && !state.overlays.some((o) => o.id === state.selectedId)) {
       state.selectedId = null;
     }
-    saveCustomAssets();
     renderCustomPane();
     draw();
-  }
-
-  async function preloadAssets() {
-    const all = BRANDS.flatMap((g) => g.assets);
-    const results = await Promise.allSettled(
-      all.map(async (asset) => {
-        const img = await loadImageUrl(asset.src);
-        assetImages.set(asset.id, img);
-      })
-    );
-    for (const [oldId, currentId] of Object.entries(LEGACY_ASSETS)) {
-      if (assetImages.has(currentId)) assetImages.set(oldId, assetImages.get(currentId));
-    }
-    return results.filter(result => result.status === "rejected").length;
+    reportCustomStatus("Removed the custom asset from this browser.");
+    return true;
   }
 
   async function setBlankBackground() {
@@ -2143,6 +2141,7 @@
     els.save.addEventListener("click", saveCompositionToLibrary);
   }
   els.clear.addEventListener("click", () => {
+    beginDocumentOperation();
     state.overlays = state.overlays.filter(layer => layer.locked);
     if (!state.overlays.some(layer => layer.id === state.selectedId)) state.selectedId = null;
     draw();
@@ -2208,13 +2207,13 @@
       e.dataTransfer.getData("application/x-brand-asset") ||
       e.dataTransfer.getData("text/plain");
 
-    if (assetId && assetImages.has(assetId)) {
+    if (assetId && (assetImages.has(assetId) || builtinSources.has(assetId) || Object.hasOwn(LEGACY_ASSETS, assetId))) {
       if (!state.bgImage) {
         els.meta.textContent = "Upload a background first";
         return;
       }
       const pt = clientToCanvas(e.clientX, e.clientY);
-      addOverlay(assetId, pt.x, pt.y);
+      await insertAsset(assetId, pt.x, pt.y);
       return;
     }
 
@@ -2290,7 +2289,7 @@
       const key = e.key.toLowerCase();
       if (key === "z" || key === "y") {
         e.preventDefault();
-        if (key === "y" || e.shiftKey) history?.redo(); else history?.undo();
+        stepHistory(key === "y" || e.shiftKey);
         return;
       }
     }
@@ -2326,8 +2325,8 @@
     if (event.key.startsWith("Arrow")) history?.endGroup();
   });
   document.addEventListener("focusout", () => history?.endGroup());
-  document.getElementById("btn-undo").addEventListener("click", () => history?.undo());
-  document.getElementById("btn-redo").addEventListener("click", () => history?.redo());
+  document.getElementById("btn-undo").addEventListener("click", () => stepHistory());
+  document.getElementById("btn-redo").addEventListener("click", () => stepHistory(true));
   document.getElementById("btn-export-project").addEventListener("click", exportProject);
   document.getElementById("btn-restore-template").addEventListener("click", () => {
     if (!state.templateSource) return;
@@ -2401,39 +2400,21 @@
     }
   }, { once: true });
 
-  window.addEventListener("resize", () => {
+  const resizeRender = window.ComposerRenderScheduler.create(() => {
     fitCanvasElement();
     draw();
   });
+  window.addEventListener("resize", resizeRender.request);
 
   async function bootCustomAssets() {
-    const stored = loadCustomAssetsFromStorage();
-    const loaded = [];
-    const loadedImages = new Map();
-    for (const asset of stored) {
-      try {
-        const image = await loadImageUrl(asset.dataUrl);
-        loadedImages.set(asset.id, image);
-        loaded.push(asset);
-      } catch {
-        // drop broken entries
-      }
-    }
-    const currentAssets = new Map(state.customAssets.map(asset => [asset.id, asset]));
-    for (const asset of loaded) {
-      if (!currentAssets.has(asset.id)) assetImages.set(asset.id, loadedImages.get(asset.id));
-    }
-    state.customAssets = [
-      ...loaded.filter(asset => !currentAssets.has(asset.id)),
-      ...currentAssets.values(),
-    ];
-    if (loaded.length !== stored.length || currentAssets.size) {
-      saveCustomAssets();
-    }
+    const current = new Map(state.customAssets.map(asset => [asset.id, asset]));
+    state.customAssets = [...loadCustomAssetsFromStorage().filter(asset => !current.has(asset.id)), ...current.values()];
     renderCustomPane();
   }
 
-  new ResizeObserver(() => { fitCanvasElement(); draw(); }).observe(els.stage);
+  // Apply layout writes in the next frame, outside ResizeObserver delivery.
+  // Updating chrome inside the observer can resize the stage again in WebKit.
+  new ResizeObserver(resizeRender.request).observe(els.stage);
 
   viewport = window.ComposerViewport({
     stage: els.stage, canvas: els.canvas, dimensions: () => ({ width: state.width, height: state.height }),
@@ -2468,14 +2449,10 @@
   savedDocumentKey = lastDocumentKey;
   historyReady = true;
   updateDocumentStatus();
-  Promise.all([preloadAssets(), bootCustomAssets()])
-    .then(([failedAssets]) => {
-      buildAssetPane();
-      if (!assetImages.has(CUSTOM_COLOR_ID)) applyTintColor(state.tintHex, { persist: false });
-      updateChrome();
-      if (failedAssets) els.meta.textContent = `${failedAssets} brand assets could not load. Available assets are ready; reload to retry.`;
-    })
-    .catch((err) => {
-      els.meta.textContent = err.message || "Failed to load brand assets";
-    });
+  buildAssetPane();
+  updateChrome();
+  bootCustomAssets().then(() => { updateChrome(); pruneAssets(); }).catch(error => {
+    ++sessionFeedbackVersion;
+    document.getElementById("session-status").textContent = error.message || "Custom assets could not load. Reopen the page to retry.";
+  });
 })();

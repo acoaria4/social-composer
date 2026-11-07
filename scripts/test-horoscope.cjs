@@ -1,9 +1,9 @@
-const {chromium}=require('playwright');const assert=require('node:assert/strict');const path=require('node:path');
+const { launchBrowser } = require('./test-support.cjs');const assert=require('node:assert/strict');const path=require('node:path');
 const reviewDir=path.resolve(__dirname,'../exports/daily-horoscope');
-(async()=>{const browser=await chromium.launch({channel:'chrome',headless:true});try{
- let apiCalls=0;
+(async()=>{const browser=await launchBrowser();try{
+ let apiCalls=0,apiOverflow=false;
  const page=await browser.newPage({viewport:{width:1280,height:900}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.route('https://aura-glitchlabs.fly.dev/**',route=>{apiCalls++;const params=new URL(route.request().url()).searchParams;const date=params.get('date'),language=params.get('lang');return route.fulfill({json:{date,language,timezone:'Asia/Kolkata',disclaimer:'For reflection only. Use your own judgement.',readings:['aries','taurus','gemini','cancer','leo','virgo','libra','scorpio','sagittarius','capricorn','aquarius','pisces'].map(sign=>({sign,summary:language==='ta'?'அடுத்த முடிவுக்கு முன் புதிய கோணத்தில் சிந்தியுங்கள்.':'Take one thoughtful step. Give yourself room to grow.'}))}})});
+ await page.route('https://aura-glitchlabs.fly.dev/**',route=>{apiCalls++;const params=new URL(route.request().url()).searchParams;const date=params.get('date'),language=params.get('lang');const summary=language==='ta'?'அடுத்த முடிவுக்கு முன் புதிய கோணத்தில் சிந்தியுங்கள்.':'Take one thoughtful step. Give yourself room to grow.';return route.fulfill({json:{date,language,timezone:'Asia/Kolkata',disclaimer:'For reflection only. Use your own judgement.',readings:['aries','taurus','gemini','cancer','leo','virgo','libra','scorpio','sagittarius','capricorn','aquarius','pisces'].map(sign=>({sign,summary:apiOverflow?`${summary} `.repeat(30):summary}))}})});
  await page.goto(process.env.COMPOSER_URL||'http://127.0.0.1:8089/');await page.locator('[data-brand="aura"]').click();
  await page.locator('#aura-heading').click();
  await page.locator('#settings-heading').click();
@@ -41,9 +41,16 @@ const reviewDir=path.resolve(__dirname,'../exports/daily-horoscope');
  assert.equal(await page.locator('#horoscope-theme option').count(),9);
  await page.locator('#horoscope-theme').selectOption('friday');await page.locator('#horoscope-date').fill('2026-09-21');await page.locator('#horoscope-date').dispatchEvent('change');assert.equal(await page.locator('#horoscope-theme').inputValue(),'friday');assert.match(await page.locator('#horoscope-palette').innerText(),/Friday/);
  assert.equal(apiCalls,0);
- await source.selectOption('api');
- await page.locator('#horoscope-create').click();await page.waitForFunction(()=>document.querySelector('#horoscope-status').textContent.includes('does not fit'));
+ // Reject a deliberately overlong API edition rather than relying on a short
+ // reading landing near an engine-specific font-metrics boundary at 30px.
+ // Commit WebKit's native date editor before programmatic selectOption; the
+ // latter does not move focus, so otherwise date blur can consume Create's click.
+ await page.locator('#horoscope-date').blur();
+ apiOverflow=true;await source.selectOption('api');
+ await page.locator('#horoscope-create').click();await page.waitForFunction(()=>!document.querySelector('#horoscope-create').disabled);
+ assert.match(await page.locator('#horoscope-status').innerText(),/does not fit/);
  assert.equal(await canvas(),manualImage);
+ apiOverflow=false;
  await size.fill('24');await create();
  assert.deepEqual(await page.locator('#stage-canvas').evaluate(c=>[c.width,c.height]),[1080,1920]);
  for(const lang of ['ta','en']){await page.locator('#horoscope-language').selectOption(lang);await page.locator('#horoscope-create').click();await page.waitForFunction(()=>document.querySelector('#horoscope-status').textContent.startsWith('Ready:'));}

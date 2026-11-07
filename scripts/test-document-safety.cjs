@@ -1,34 +1,12 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const http = require('node:http');
 const path = require('node:path');
-const { chromium } = require('playwright');
+const { launchBrowser, startServer, clickAsset } = require('./test-support.cjs');
 
 const root = path.resolve(__dirname, '..');
 const output = path.join(root, 'exports/document-safety');
 const storageKey = 'glitch-social-composer-created-pics';
 const cards = '#assets-created .asset-chip';
-
-async function startServer() {
-  const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.png': 'image/png', '.svg': 'image/svg+xml', '.ttf': 'font/ttf' };
-  const server = http.createServer((request, response) => {
-    if (!['GET', 'HEAD'].includes(request.method)) { response.writeHead(405).end(); return; }
-    let target;
-    try {
-      const pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
-      target = path.resolve(root, `.${pathname === '/' ? '/index.html' : pathname}`);
-      if (target !== root && !target.startsWith(root + path.sep)) throw new Error('Outside repository');
-    } catch { response.writeHead(400).end(); return; }
-    fs.stat(target, (error, stat) => {
-      if (error || !stat.isFile()) { response.writeHead(404).end(); return; }
-      response.writeHead(200, { 'Content-Type': types[path.extname(target)] || 'application/octet-stream', 'Content-Length': stat.size });
-      if (request.method === 'HEAD') response.end();
-      else fs.createReadStream(target).on('error', () => response.destroy()).pipe(response);
-    });
-  });
-  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
-  return { server, url: `http://127.0.0.1:${server.address().port}/` };
-}
 
 const svgFile = (color, size = 120) => ({
   name: `${color.replace('#', '')}.svg`, mimeType: 'image/svg+xml',
@@ -40,7 +18,7 @@ const svgFile = (color, size = 120) => ({
   let browser;
   const errors = [], evidence = { races: [], transparency: [], aura: [], stacking: {}, text: [] };
   try {
-    browser = await chromium.launch({ channel: 'chrome', headless: true });
+    browser = await launchBrowser();
     fs.mkdirSync(output, { recursive: true });
     const url = process.env.COMPOSER_URL || local.url;
     async function fresh() {
@@ -281,7 +259,7 @@ const svgFile = (color, size = 120) => ({
     {
       const page = await fresh(); await page.locator('#preset-select').selectOption('1080x1080'); await blank(page);
       await page.locator('#tab-assets').click(); await page.locator('#panel-assets [data-brand-panel="expenses"] > summary').click();
-      await page.locator('[data-asset-id="expenses-icon"]').click(); await page.locator('[data-asset-id="expenses-wordmark-light"]').click();
+      await clickAsset(page, '[data-asset-id="expenses-icon"]'); await clickAsset(page, '[data-asset-id="expenses-wordmark-light"]');
       const original = (await save(page)).composition.overlays, order = original.map(item => item.assetId), icon = original[0];
       const box = await page.locator('#stage-canvas').boundingBox(), scale = box.width / 1080;
       const point = { x: box.x + (icon.x + icon.width / 2) * scale, y: box.y + (icon.y + 20) * scale };

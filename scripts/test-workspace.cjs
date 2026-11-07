@@ -1,36 +1,14 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const http = require('node:http');
 const path = require('node:path');
-const { chromium } = require('playwright');
+const { launchBrowser, startServer, clickAsset } = require('./test-support.cjs');
 
 const root = path.resolve(__dirname, '..');
 const output = path.join(root, 'exports/sprint4/workspace');
 
-async function startServer() {
-  const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.png': 'image/png', '.svg': 'image/svg+xml', '.ttf': 'font/ttf' };
-  const server = http.createServer((request, response) => {
-    if (!['GET', 'HEAD'].includes(request.method)) { response.writeHead(405).end(); return; }
-    let file;
-    try {
-      const pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
-      file = path.resolve(root, `.${pathname === '/' ? '/index.html' : pathname}`);
-      if (file !== root && !file.startsWith(root + path.sep)) throw new Error('Outside repository');
-    } catch { response.writeHead(400).end(); return; }
-    fs.stat(file, (error, stat) => {
-      if (error || !stat.isFile()) { response.writeHead(404).end(); return; }
-      response.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream', 'Content-Length': stat.size });
-      if (request.method === 'HEAD') response.end();
-      else fs.createReadStream(file).on('error', () => response.destroy()).pipe(response);
-    });
-  });
-  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
-  return { server, url: `http://127.0.0.1:${server.address().port}/` };
-}
-
 (async () => {
   const local = process.env.COMPOSER_URL ? null : await startServer();
-  const browser = await chromium.launch({ channel: 'chrome', headless: true, args: process.platform === 'win32' ? ['--disable-gpu'] : [] });
+  const browser = await launchBrowser();
   const errors = [], evidence = {};
   fs.mkdirSync(output, { recursive: true });
   try {
@@ -115,7 +93,7 @@ async function startServer() {
     const textBox = await page.locator('#selection-box').boundingBox();
     await page.locator('[data-brand="expenses"]').click(); await page.locator('#tab-assets').click();
     await page.locator('#panel-assets [data-brand-panel="expenses"] > summary').click();
-    await page.locator('[data-asset-id="expenses-icon"]').click();
+    await clickAsset(page, '[data-asset-id="expenses-icon"]');
     assert.equal(await visible('#panel-layers'), true, 'Image selection opens layer geometry');
     await page.mouse.click(textBox.x + textBox.width / 2, textBox.y + textBox.height / 2);
     assert.equal(await visible('#panel-text'), true, 'Selecting existing canvas text opens its inspector');
@@ -128,7 +106,7 @@ async function startServer() {
     assert.equal(await saved.locator('button button').count(), 0);
     assert.equal(await saved.locator(':scope > button').count(), 2, 'Restore and Remove are sibling native buttons');
     const remove = await saved.locator('.asset-chip-remove').boundingBox();
-    assert.ok(remove.width >= 44 && remove.height >= 44, 'Saved Remove retains a full touch target');
+    assert.ok(remove.width >= 44 - .001 && remove.height >= 44 - .001, 'Saved Remove retains a full touch target');
     await page.locator('#btn-close-saved').focus(); await page.keyboard.press('Escape');
     assert.equal(await visible('#pane-created'), false); assert.equal(await active('#btn-created-toggle'), true);
     evidence.savedDrawer = { siblingControls: true, noNestedButtons: true, touchTarget: true, escapeCloses: true, focusRestored: true };
@@ -140,7 +118,8 @@ async function startServer() {
     assert.equal(await custom.locator('button button').count(), 0);
     assert.equal(await custom.locator(':scope > button').count(), 2);
     const customRemove = await custom.locator('.asset-chip-remove').boundingBox();
-    assert.ok(customRemove.width >= 44 && customRemove.height >= 44);
+    // Gecko bounding quads can report 44 CSS px as 43.9999847.
+    assert.ok(customRemove.width >= 44 - .001 && customRemove.height >= 44 - .001, `Custom Remove retains a full touch target: ${JSON.stringify(customRemove)}`);
     evidence.customAssets = { siblingControls: true, touchTarget: true };
     await page.screenshot({ path: path.join(output, 'workspace-1440.png') });
 

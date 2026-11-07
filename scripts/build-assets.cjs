@@ -1,10 +1,10 @@
 /* Run with NODE_PATH pointing to a Playwright installation and a local site server.
    Only reads the copied current icons; every output stays inside the composer. */
-const {chromium}=require('playwright');
+const { launchBrowser } = require('./test-support.cjs');
 const fs=require('node:fs');
 const path=require('node:path');
 (async()=>{
- const browser=await chromium.launch({channel:'chrome',headless:true});
+ const browser=await launchBrowser();
  try {
  const page=await browser.newPage();
  await page.goto(process.env.COMPOSER_URL || 'http://127.0.0.1:8089/');

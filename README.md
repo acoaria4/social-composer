@@ -2,13 +2,23 @@
 
 Standalone social-media artwork Composer for gLitCh Labs, AURA, Lumen, and Expenses. All runtime code, fonts, and brand assets are local to this repository.
 
-Run `python3 -m http.server 8089` and open `http://localhost:8089/`. No build step or runtime dependencies are required.
+Serve this folder with any static HTTP server, for example `python3 -m http.server 8089 --bind 127.0.0.1`, and open `http://127.0.0.1:8089/`. No build step or runtime dependencies are required.
+
+For development, use Node 24+, run `npm ci`, then `npm start`. This starts a loopback-only server at `http://127.0.0.1:8089/` and keeps repository internals private.
+
+Run `npm test` for syntax checks and the complete serial test suite. The launcher uses local Chrome when available, or Playwright's pinned Chromium after `npx playwright install chromium`. For another engine, run `npx playwright install firefox webkit`, set `COMPOSER_BROWSER` to `firefox` or `webkit`, and run `npm test`. Focus a check with `npm test -- --suite test-performance.cjs`. CI runs the Chromium, Firefox, and WebKit matrix sequentially.
+
+After `npm ci` and browser setup, individual `node scripts/test-*.cjs` and artwork-generation commands below also work directly: their shared launcher starts and stops a loopback server automatically. A pre-running server, globally installed Playwright, and `NODE_PATH` are unnecessary. Set `COMPOSER_URL` only when you want to target an already-served copy.
+
+UI images now use small renditions; original brand artwork loads when inserted on the canvas. Original-resolution saves, projects, and exports retain their quality. Regenerate the UI images after changing brand sources with `node scripts/build-ui-assets.cjs`. See [the maintenance guide](docs/architecture.md) for module contracts and [the performance report](docs/performance.md) for measurements and verification.
 
 ## Using the editor
 
 The matte black workspace has three areas: **Your library** on the left, the canvas in the center, and an **Inspector** on the right. Choose a brand using its name and mini icon, then open **Templates**. AURA shows daily covers and readings; Lumen shows fact posts. Each card opens its settings without generating artwork or fetching readings. Template cards show actual local renderer samples. Brands without templates offer a blank canvas and background upload instead.
 
 Choose a brand and open **Assets** for brand artwork, custom uploads, and Expenses tint controls. Text and layer tools live in the inspector, with navigation independent of the library. Selecting text on the canvas opens its text controls; selecting an image opens layer geometry. The header identifies the current canvas or generated post and shows its save state. Template text and settings survive tab changes, brand changes, and reloads in the same browser.
+
+Original image inserts show a loading state and can be retried after a failed request. Opening or clearing another canvas cancels older inserts. Custom uploads and removals update the library only after browser storage succeeds; errors stay visible in Custom, and the twelve-item / 2 MB budget never removes existing assets.
 
 Tool sections start collapsed. Each brand's artwork lives under **Assets → Icons**; expand only the sections you need.
 
@@ -18,7 +28,7 @@ After uploading a background or creating a canvas, open **Inspector → Text →
 
 Select a box on the canvas or from the text-box list. Drag it to move, drag a corner to change its width, or expand **Position and width** for numeric controls. Text wraps without shrinking, and box height grows with its content. PNG download is disabled when a box or its visible text extends beyond the canvas, or when the box is too narrow for an indivisible character. Adjust its position, width, or shared text size to fit. Saved designs retain editable text and shared styles, including after reloading. Existing saved image-only designs remain compatible.
 
-Run `node scripts/test-text-boxes.cjs` with the same Playwright setup to check collapsed sections, paste handling, shared styles, wrapping, overflow, editable save/restore, PNG export, and responsive controls. Outputs go to `exports/text-boxes/`.
+Run `npm test -- --suite test-text-boxes.cjs` to check collapsed sections, paste handling, shared styles, wrapping, overflow, editable save/restore, PNG export, and responsive controls. Outputs go to `exports/text-boxes/`.
 
 Canvas size and grid controls sit above the preview. **Grid** shows placement guides; **Snap** independently rounds dragged positions to the 72 px grid. Neither appears in exported artwork. **More actions** contains project backup controls, **Remove assets and text**, and **Clear canvas**. On phones and smaller tablets, the fixed **Edit / Preview** switch shows either the authoring tools or the artwork. Canvas size and project actions stay available in Edit; save and PNG export remain in the app bar. **View preview** also switches to Preview and focuses the canvas.
 
@@ -32,7 +42,7 @@ Use **More actions → Export project** for a portable `.json` backup with embed
 
 The preview has independent **− / +**, percentage, **Fit**, and **Hand** controls. Pinch your trackpad or use **Ctrl + scroll** over the preview to zoom around the pointer; ordinary scrolling pans. Use **Hand** to drag the view, or hold **Space** while the preview is focused or hovered (typing in fields is unaffected). Two-finger touch gestures zoom and pan on mobile. Manual zoom ranges from 10–400%; 100% maps one artwork pixel to one CSS pixel. Fit shows the full composition and recalculates when the preview changes size. New and restored compositions start in Fit mode.
 
-Zoom affects only the preview, with no changes to artwork coordinates, saved designs, or exported PNGs. Browser zoom outside the preview works normally. Run `node scripts/test-viewport.cjs` with the Playwright setup below to verify gestures, editing coordinates, unchanged exports, and responsive behavior.
+Zoom affects only the preview, with no changes to artwork coordinates, saved designs, or exported PNGs. Browser zoom outside the preview works normally. Run `npm test -- --suite test-viewport.cjs` to verify gestures, editing coordinates, unchanged exports, and responsive behavior.
 
 Use **Save design** to keep an editable composition in this browser and **Saved designs** to restore it. These saves are local to the browser and site origin; **Download PNG** creates a separate image file.
 
@@ -42,15 +52,15 @@ Saved backgrounds with transparent or partially transparent pixels use lossless 
 
 Uploads, saved-design restores, blank canvases, and generated templates share one operation check. Opening or clearing a canvas cancels earlier work, including pending API requests. A delayed image or template cannot replace a newer choice. Restores prepare their images and fonts before replacing the current design. Selecting, moving, or resizing an existing object preserves its stacking order.
 
-Run `node scripts/test-storage.cjs` with Playwright available through `NODE_PATH` and Chrome installed to check failed writes, full-library retention, storage-budget limits, removal retry, and save/reload. It starts a local static server unless `COMPOSER_URL` is set. Review artifacts go to `exports/storage/`.
+Run `npm test -- --suite test-storage.cjs` to check failed writes, full-library retention, storage-budget limits, removal retry, and save/reload. Review artifacts go to `exports/storage/`.
 
-Run `node scripts/test-document-safety.cjs` with the same setup to check delayed document operations, transparent saves and PNG downloads, AURA format protection, stable stacking, and actual text overflow. It also starts its own local server unless `COMPOSER_URL` is set. Outputs go to `exports/document-safety/`.
+Run `npm test -- --suite test-document-safety.cjs` to check delayed document operations, transparent saves and PNG downloads, AURA format protection, stable stacking, and actual text overflow. Outputs go to `exports/document-safety/`.
 
-The additional self-serving suites are `scripts/test-editing-session.cjs` for undo/redo, save state and recovery; `scripts/test-layers.cjs` for layer editing, locks, visibility and independent snapping; and `scripts/test-projects.cjs` for portable backups and template source restoration. Their evidence goes to `exports/sprint3/`. Run browser suites one at a time to limit resource use.
+Additional suites cover editing history and recovery (`npm test -- --suite test-editing-session.cjs`), layer controls (`npm test -- --suite test-layers.cjs`), and portable backups (`npm test -- --suite test-projects.cjs`). Their evidence goes to `exports/sprint3/`. The test runner keeps browser suites serial to limit resource use.
 
-Run `node scripts/test-workspace.cjs` for three-pane layout, independent navigation, template cards, contextual inspection, accessible library actions, and mobile Edit/Preview behavior. It starts its own server unless `COMPOSER_URL` is set and writes evidence to `exports/sprint4/workspace/`. The viewport and workspace suites use software graphics on Windows to reduce GPU use during checks. Template thumbnails can be regenerated with `node scripts/build-template-previews.cjs` while the app is served locally.
+Run `npm test -- --suite test-workspace.cjs` for three-pane layout, independent navigation, template cards, contextual inspection, accessible library actions, and mobile Edit/Preview behavior. It writes evidence to `exports/sprint4/workspace/`. Windows Chromium and Firefox checks use software graphics. Regenerate template thumbnails with `node scripts/build-template-previews.cjs`.
 
-With Playwright available through `NODE_PATH` and local Chrome installed, run `node scripts/test-editor.cjs` to check keyboard navigation, drafts, asset editing, uploads, saving/restoring, export, validation, and layouts at 390, 860, and 1440 px. Set `COMPOSER_URL` when using a different local port. Screenshots are written to `exports/editor/`.
+Run `npm test -- --suite test-editor.cjs` to check keyboard navigation, drafts, asset editing, uploads, saving/restoring, export, validation, and layouts at 390, 860, and 1440 px. Screenshots are written to `exports/editor/`.
 
 ## Publishing
 
@@ -72,9 +82,9 @@ Lumen posts use a prominent app icon beside a separately scaled wordmark, with l
 
 **Text size** is adjustable from 36 to 84 px (default 72). Text is wrapped without silently shrinking or truncating. Overlong content shows a format-specific error and keeps the current canvas. Draft fields and settings survive reloads. Save and Download PNG use the normal Composer workflow. Text is not automatically fact-checked.
 
-Run `node scripts/test-lumen-formats.cjs` to verify all 30 format/subject combinations, layout bounds, pending/stale format changes, format-specific overflow, saving/restoring, and protection against cropping. It exports all templates plus phone-sized and simulated Reels previews for 9:16 under `exports/lumen-formats/`. Samples use the same illustrative lightning text.
+Run `npm test -- --suite test-lumen-formats.cjs` to verify all 30 format/subject combinations, layout bounds, pending/stale format changes, format-specific overflow, saving/restoring, and protection against cropping. It exports all templates plus phone-sized and simulated Reels previews for 9:16 under `exports/lumen-formats/`. Samples use the same illustrative lightning text.
 
-Run `node scripts/test-lumen.cjs` with Playwright available through `NODE_PATH` and local Chrome installed. `COMPOSER_URL` overrides the test URL. The test exports a layout sample under `exports/lumen/`; its lightning fact is supported by the Met Office: https://weather.metoffice.gov.uk/learn-about/weather/types-of-weather/thunder-and-lightning
+Run `npm test -- --suite test-lumen.cjs` for the Lumen creation flow. The test exports a layout sample under `exports/lumen/`; its lightning fact is supported by the Met Office: https://weather.metoffice.gov.uk/learn-about/weather/types-of-weather/thunder-and-lightning
 
 ## Shared assets
 
@@ -84,7 +94,7 @@ Run `node scripts/test-lumen.cjs` with Playwright available through `NODE_PATH` 
 - `assets/fonts/` contains copied self-hosted fonts and their OFL licenses. The interface uses Manrope and DM Sans.
 - Existing saved asset identifiers resolve to the current artwork. Browser saves, uploads, placement, tinting, and PNG export remain local.
 
-To regenerate derived artwork after updating the local icon copies, run `node scripts/build-assets.cjs` with Playwright available through `NODE_PATH` and Chrome installed. Start the local site at port 8089, or set `COMPOSER_URL` to the composer URL. Outputs stay in `brands/current/`. No original site images are changed.
+To regenerate derived artwork after updating the local icon copies, run `node scripts/build-assets.cjs`. Outputs stay in `brands/current/`. Then run `node scripts/build-ui-assets.cjs` to refresh the smaller UI renditions. No original site images are changed.
 
 The older files under `brands/` are no longer referenced by the composer.
 
@@ -110,9 +120,9 @@ Text uses self-hosted Noto Sans Tamil or DM Sans; fonts are loaded at the reques
 
 The API must allow the site's origin through its CORS configuration. In API mode, the status indicator checks the chosen language, reports a possible cold start after three seconds, and times out after sixty seconds.
 
-With a local server on port 8089 and Playwright available through `NODE_PATH`:
+After the development setup above:
 
-- `node scripts/test-horoscope.cjs` checks shared size and weight across all signs, input validation, accessible name contrast, long Tamil readings at 18 px, manual defaults, draft retention, API failures/cancellation, both languages, all backgrounds, blanks, dimensions, PNG export, overflow handling, and mobile width using mocked API responses.
+- `npm test -- --suite test-horoscope.cjs` checks shared size and weight across all signs, input validation, accessible name contrast, long Tamil readings at 18 px, manual defaults, draft retention, API failures/cancellation, both languages, all backgrounds, blanks, dimensions, PNG export, overflow handling, and mobile width using mocked API responses.
 - `node scripts/render-horoscope.cjs` exports Tamil editorial samples and blanks for all eight backgrounds, with a comparison sheet and phone-sized/simulated Reels previews. Set `HOROSCOPE_LANGUAGE=en` for English. These samples are illustrative layout previews, not live forecasts. Pass `HOROSCOPE_DATA=/path/to/api-response.json` to render a saved actual Tamil or English API edition instead; optional `readingFontSize` and `readingFontWeight` fields set the shared typography for that export.
 
 Exports are local review artifacts under `exports/daily-horoscope/` and are not committed.
@@ -123,4 +133,4 @@ Choose the date, language, and Post color, then select **Create cover** for a 10
 
 The cover uses local background plates, a reusable zodiac ornament, and separately rendered text. Reading text size and weight do not affect it. Changing settings or switching brands cancels pending creation; creating a cover also cancels any earlier reading request. Save design retains its cover identity, including after reloading. Downloaded covers use `aura-daily-cover-YYYY-MM-DD-1080x1920.png`; older reading saves keep their original filename behavior.
 
-Run `node scripts/test-horoscope-cover.cjs` with Playwright available through `NODE_PATH` and Chrome installed. It starts its own local static server unless `COMPOSER_URL` is set, checks cover generation, date alignment, all day palettes and both languages, cancellation, save/restore, export, and mobile layout, and writes previews to `exports/aura-cover-final/`.
+Run `npm test -- --suite test-horoscope-cover.cjs` to check cover generation, date alignment, all day palettes and both languages, cancellation, save/restore, export, and mobile layout. It writes previews to `exports/aura-cover-final/`.

@@ -1,10 +1,10 @@
-const { chromium } = require('playwright');
+const { launchBrowser, clickAsset } = require('./test-support.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
 (async () => {
-  const browser = await chromium.launch({ channel: 'chrome', headless: true });
+  const browser = await launchBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     const errors = [];
@@ -41,7 +41,7 @@ const path = require('node:path');
     await page.locator('[data-brand="expenses"]').click();
     await page.locator('#tab-assets').click();
     await page.locator('#panel-assets [data-brand-panel="expenses"] > summary').click();
-    await page.locator('[data-asset-id="expenses-icon"]').click();
+    await clickAsset(page, '[data-asset-id="expenses-icon"]');
     assert.equal(await visible('#selection-box'), true);
     // Move and scale through the same canvas pointer interactions used by the editor.
     const canvas = await page.locator('#stage-canvas').boundingBox();
@@ -60,7 +60,7 @@ const path = require('node:path');
     await page.locator('#panel-assets > details:not([data-brand-panel]) > summary').click();
     await page.locator('#custom-asset-input').setInputFiles(path.resolve(__dirname, '../brands/current/lumen-mark.png'));
     await page.waitForFunction(() => document.querySelectorAll('#assets-custom .asset-chip').length === 1);
-    await page.locator('#assets-custom .asset-chip').click();
+    await clickAsset(page, '#assets-custom .asset-chip');
     await page.locator('#btn-grid').click();
     assert.equal(await page.locator('#btn-grid').getAttribute('aria-pressed'), 'false');
     await page.locator('#btn-grid-invert').click();

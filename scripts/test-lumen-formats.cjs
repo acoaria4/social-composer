@@ -1,8 +1,8 @@
-const {chromium}=require('playwright');
+const { launchBrowser } = require('./test-support.cjs');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');const path=require('node:path');
 (async()=>{
- const browser=await chromium.launch({channel:'chrome',headless:true});
+ const browser=await launchBrowser();
  try{
   const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
   page.on('pageerror',e=>errors.push(e.message));

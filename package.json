@@ -1,0 +1,13 @@
+{
+  "name": "social-composer",
+  "version": "0.5.0",
+  "private": true,
+  "description": "Local-first social artwork composer; static runtime with reproducible development checks.",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "start": "node scripts/test-support.cjs --serve",
+    "test": "node scripts/test-all.cjs",
+    "test:syntax": "node scripts/test-all.cjs --syntax-only"
+  },
+  "devDependencies": { "playwright": "1.62.1" }
+}

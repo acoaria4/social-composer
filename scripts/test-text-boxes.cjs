@@ -1,9 +1,9 @@
-const { chromium } = require('playwright');
+const { launchBrowser } = require('./test-support.cjs');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
 (async () => {
-  const browser = await chromium.launch({channel:'chrome',headless:true});
+  const browser = await launchBrowser();
   try {
     const page = await browser.newPage({viewport:{width:1440,height:1000}});
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -24,7 +24,18 @@ const fs = require('node:fs');
     await page.locator('#text-add').click();
     const paste = html => page.locator('#text-content').evaluate((e,html)=>{
       const data=new DataTransfer();data.setData('text/html',html);data.setData('text/plain','Header\nBody text');
-      e.dispatchEvent(new ClipboardEvent('paste',{clipboardData:data,bubbles:true}));
+      const event=new ClipboardEvent('paste',{clipboardData:data,bubbles:true,cancelable:true});
+      // Gecko may discard DataTransfer contents on an untrusted ClipboardEvent.
+      // Supply the same clipboard contract explicitly for this synthetic fixture;
+      // the real paste listener still parses and validates the supplied markup.
+      if(event.clipboardData?.getData('text/html')!==html) {
+        Object.defineProperty(event,'clipboardData',{value:{
+          types:['text/html','text/plain'],
+          getData:type=>type==='text/html'?html:type==='text/plain'?'Header\nBody text':'',
+        }});
+      }
+      if(event.clipboardData.getData('text/html')!==html)throw new Error('Synthetic paste fixture lost its HTML payload');
+      e.dispatchEvent(event);
     },html);
     await paste('Plain clipboard fragment');
     assert.equal(await page.locator('#text-body-font').inputValue(),'DM Sans');

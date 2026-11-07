@@ -1,10 +1,10 @@
-const { chromium } = require('playwright');
+const { launchBrowser } = require('./test-support.cjs');
 const fs = require('node:fs');
 const path = require('node:path');
 
 // These are real local renderer samples, not live readings or API results.
 (async () => {
-  const browser = await chromium.launch({ channel: 'chrome', headless: true });
+  const browser = await launchBrowser();
   try {
     const page = await browser.newPage();
     await page.goto(process.env.COMPOSER_URL || 'http://127.0.0.1:8089/');

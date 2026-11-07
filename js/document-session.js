@@ -21,7 +21,7 @@
     let applying = false;
 
     function notify() {
-      onChange({ canUndo: index > 0, canRedo: index < entries.length - 1, undoCount: index, redoCount: entries.length - index - 1 });
+      onChange({ canUndo: index > 0, canRedo: index < entries.length - 1, undoCount: index, redoCount: entries.length - index - 1, snapshot: entries[index] });
     }
 
     function trimResources() {
@@ -86,6 +86,7 @@
       redo: () => step(1),
       canUndo: () => index > 0,
       canRedo: () => index < entries.length - 1,
+      current: () => entries[index],
       endGroup: () => { activeGroup = null; },
       reset: () => { entries = [capture()]; index = 0; activeGroup = null; notify(); },
     };

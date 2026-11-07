@@ -213,7 +213,7 @@
     },
     {
       "id": "5-performance-and-maintenance",
-      "status": "pending",
+      "status": "complete",
       "scope": [
         "Thumbnail/favicon renditions and on-demand assets",
         "Document/persistence/interaction module boundaries",
@@ -221,7 +221,85 @@
         "CI and broader browser coverage",
         "Documentation and error-state cleanup",
         "Final polish and repeat audit"
-      ]
+      ],
+      "acceptance": [
+        "Cold startup requests no full-resolution brand artwork and stays below a 1.5 MB local resource body budget",
+        "Thumbnail browsing does not load originals; insertion, exports, saves and recovery keep original artwork",
+        "Delayed or failed asset loads are cancelable and retryable without resurrecting cleared or removed layers",
+        "Repeated project imports release unused registry resources while undo retains exact artwork",
+        "Pointer events coalesce into frames and reuse one captured snapshot per changed draw",
+        "Custom-library write failures preserve stored and visible assets",
+        "npm test runs pinned tooling and all suites serially; Chromium, Firefox and WebKit CI are configured",
+        "Document model, image encoding, resource loading and frame scheduling have explicit module boundaries",
+        "Existing template, storage, transparency, export and responsive behavior remain verified"
+      ],
+      "verification": {
+        "date": "2026-11-07",
+        "result": "passed",
+        "browser_suites": [
+          "test-core-models.cjs",
+          "test-custom-library.cjs",
+          "test-document-safety.cjs",
+          "test-editing-session.cjs",
+          "test-editor.cjs",
+          "test-horoscope-cover.cjs",
+          "test-horoscope.cjs",
+          "test-layers.cjs",
+          "test-lumen-formats.cjs",
+          "test-lumen.cjs",
+          "test-performance.cjs",
+          "test-projects.cjs",
+          "test-storage.cjs",
+          "test-text-boxes.cjs",
+          "test-tooling.cjs",
+          "test-viewport.cjs",
+          "test-workspace.cjs"
+        ],
+        "browsers": {
+          "chromium": {
+            "passed": 17,
+            "total": 17,
+            "execution": "serial"
+          },
+          "firefox": {
+            "passed": 17,
+            "total": 17,
+            "execution": "serial"
+          },
+          "webkit": {
+            "passed": 17,
+            "total": 17,
+            "execution": "serial"
+          }
+        },
+        "measurements": {
+          "beforeBytes": 13211731,
+          "afterBytes": 967578,
+          "reductionPercent": 92.68,
+          "beforeOriginalRequests": 25,
+          "afterOriginalRequests": 0
+        },
+        "additional_checks": [
+          "29 UI renditions regenerated through standalone shared server",
+          "Original brand artwork, fonts and template files unchanged",
+          "Desktop and phone workspace screenshots inspected",
+          "JavaScript syntax and git diff --check",
+          "Independent module, async resource, tooling and documentation review"
+        ],
+        "evidence": [
+          "docs/performance.md",
+          "docs/architecture.md",
+          "assets/ui/manifest.json",
+          "exports/sprint5/verification.json",
+          "exports/checks/chromium/results.json",
+          "exports/performance/chromium/results.json",
+          "exports/checks/firefox/results.json",
+          "exports/performance/firefox/results.json",
+          "exports/checks/webkit/results.json",
+          "exports/performance/webkit/results.json"
+        ],
+        "limitations": "Local Windows headless engines with software graphics; no physical-device or production Core Web Vitals claim. Hosted CI configured, not run before push. Native CDP touch injection is Chromium-only. Firefox portable-image compositing allows at most one RGB level within visible image layers; alpha, text and geometry remain exact. The Impeccable detector used limited regex fallback because parser dependencies are unavailable."
+      }
     }
   ]
 }

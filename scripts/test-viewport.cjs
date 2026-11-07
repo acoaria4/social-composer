@@ -1,8 +1,8 @@
-const {chromium}=require('playwright');
+const { launchBrowser, isChromium, clickAsset } = require('./test-support.cjs');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');const path=require('node:path');
 (async()=>{
- const browser=await chromium.launch({channel:'chrome',headless:true,args:process.platform==='win32'?['--disable-gpu']:[]});
+ const browser=await launchBrowser();
  try {
  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(process.env.COMPOSER_URL||'http://127.0.0.1:8089/');
@@ -12,7 +12,7 @@ const fs=require('node:fs');const path=require('node:path');
  const bitmap=()=>page.locator('#stage-canvas').evaluate(c=>c.toDataURL());
  const download=async()=>{const wait=page.waitForEvent('download');await page.locator('#btn-download').click();const stream=await(await wait).createReadStream();let parts=[];for await(const part of stream)parts.push(part);return Buffer.concat(parts);};
  await page.locator('#tab-assets').click();await page.locator('#panel-assets [data-brand-panel="expenses"] > summary').click();
- await page.locator('[data-asset-id="expenses-icon"]').click();
+ await clickAsset(page, '[data-asset-id="expenses-icon"]');
  const before=await download(),panel=await page.locator('.editor-pane').boundingBox(),initial=await rect();
  await page.locator('#zoom-in').click();assert.ok((await rect()).width>initial.width);
  assert.deepEqual(await page.locator('.editor-pane').boundingBox(),panel);
@@ -34,7 +34,9 @@ const fs=require('node:fs');const path=require('node:path');
  assert.ok((await page.locator('#selection-box').boundingBox()).width>selection.width);
  // Dropping an asset uses artwork coordinates even when the preview is zoomed.
  const dropPoint={x:stage.x+stage.width*.55,y:stage.y+stage.height*.55};
+ const layersBeforeDrop=await page.locator('#layers-list .layer-row').count();
  await page.locator('#stage-drop').evaluate((e,p)=>{const data=new DataTransfer();data.setData('application/x-brand-asset','expenses-mark');e.dispatchEvent(new DragEvent('drop',{dataTransfer:data,clientX:p.x,clientY:p.y,bubbles:true,cancelable:true}));},dropPoint);
+ await page.waitForFunction(count=>document.querySelectorAll('#layers-list .layer-row').length===count+1,layersBeforeDrop);
  const dropped=await page.locator('#selection-box').boundingBox();
  assert.ok(Math.abs(dropped.x+dropped.width/2-dropPoint.x)<40);
  assert.ok(Math.abs(dropped.y+dropped.height/2-dropPoint.y)<40);
@@ -67,19 +69,22 @@ const fs=require('node:fs');const path=require('node:path');
  // Browser zoom is not intercepted outside the preview.
  assert.equal(await page.locator('.toolbar').evaluate(e=>{const event=new WheelEvent('wheel',{ctrlKey:true,deltaY:-20,bubbles:true,cancelable:true});e.dispatchEvent(event);return event.defaultPrevented;}),false);
  await page.locator('#btn-save').click();await page.locator('#assets-created .asset-chip').first().click();await page.waitForFunction(()=>document.querySelector('#zoom-fit').getAttribute('aria-pressed')==='true');
- const cdp=await page.context().newCDPSession(page);
  await page.setViewportSize({width:390,height:844});await page.locator('#btn-close-saved').click();await page.locator('#btn-view-preview').click();
  await page.locator('#stage-drop').scrollIntoViewIfNeeded();
- const touchStage=await page.locator('#stage-drop').boundingBox();const cy=touchStage.y+touchStage.height/2,cx=touchStage.x+touchStage.width/2;
- const fitWidth=(await rect()).width;
- await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:cx-30,y:cy,id:1},{x:cx+30,y:cy,id:2}]});
- await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:cx-65,y:cy,id:1},{x:cx+65,y:cy,id:2}]});
- await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
- assert.ok((await rect()).width>fitWidth*1.5);
+ if(isChromium()) {
+  const cdp=await page.context().newCDPSession(page);
+  const touchStage=await page.locator('#stage-drop').boundingBox();const cy=touchStage.y+touchStage.height/2,cx=touchStage.x+touchStage.width/2;
+  const fitWidth=(await rect()).width;
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:cx-30,y:cy,id:1},{x:cx+30,y:cy,id:2}]});
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:cx-65,y:cy,id:1},{x:cx+65,y:cy,id:2}]});
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  assert.ok((await rect()).width>fitWidth*1.5);
+  await cdp.detach();
+ } else console.log('SKIP: native two-finger touch injection requires Chromium CDP; all other viewport checks run.');
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  assert.deepEqual(errors,[]);
  const out=path.resolve(__dirname,'../exports/viewport');fs.mkdirSync(out,{recursive:true});await page.screenshot({path:path.join(out,'mobile.png')});
  await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:path.join(out,'desktop.png')});
- console.log('PASS: canvas-only zoom, pointer anchor, bounds, wheel/Hand/Space/touch pan and zoom, editing, unchanged PNGs, resize center, restore Fit, responsive layout, and browser zoom scope.');
+ console.log(`PASS: canvas-only zoom, pointer anchor, bounds, wheel/Hand/Space${isChromium()?'/native-touch':''} pan and zoom, editing, unchanged PNGs, resize center, restore Fit, responsive layout, and browser zoom scope.`);
  }finally{await browser.close();}
 })();
