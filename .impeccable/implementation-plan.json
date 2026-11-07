@@ -31,8 +31,17 @@
     },
     {
       "id": "3-recoverable-accessible-editing",
-      "status": "pending",
-      "scope": ["Undo/redo", "Draft recovery and save state", "Accessible mixed layer controls and geometry", "Project backup and template source persistence", "Separate grid visibility and snapping"]
+      "status": "complete",
+      "scope": ["Undo/redo", "Draft recovery and save state", "Accessible mixed layer controls and geometry", "Project backup and template source persistence", "Separate grid visibility and snapping"],
+      "acceptance": ["Document edits undo and redo as coherent actions without intercepting native form editing", "A prior canvas is offered for explicit recovery after reload and recovery failures have persistent feedback", "Keyboard-accessible layer controls preserve visibility, locks, order and geometry through save and project round trips", "Portable project files embed their images, editable layers and template inputs and reject invalid files before replacing the canvas", "AURA and Lumen form drafts survive reload without automatic API calls", "Grid visibility and movement snapping can be changed independently", "The existing nine browser suites remain green"],
+      "verification": {
+        "date": "2026-11-07",
+        "result": "passed",
+        "browser_suites": ["test-editing-session.cjs", "test-layers.cjs", "test-projects.cjs", "test-editor.cjs", "test-viewport.cjs", "test-text-boxes.cjs", "test-storage.cjs", "test-document-safety.cjs", "test-lumen.cjs", "test-lumen-formats.cjs", "test-horoscope.cjs", "test-horoscope-cover.cjs"],
+        "additional_checks": ["History resource budget and grouped-edit baseline regression", "Canceled recovery cannot revive stale banner or block newer drafts", "Deleting the associated save clears saved status", "Locked geometry survives canvas resizing", "Project import preserves exact pixels, embedded assets and editable metadata", "Invalid project files preserve the current canvas", "Independent review findings corrected and covered", "Desktop and 390px visual inspection", "JavaScript syntax", "git diff --check"],
+        "evidence": ["exports/sprint3/editing-session/results.json", "exports/sprint3/layers/results.json", "exports/sprint3/projects/results.json", "exports/sprint3/verification.json"],
+        "limitations": "Verified in local Chrome. Impeccable detector used its limited regex fallback because parser dependencies are unavailable. Repeated application interruptions were not explained by Windows crash records; remaining browser checks were run serially."
+      }
     },
     {
       "id": "4-matte-black-workspace",

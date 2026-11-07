@@ -6,7 +6,7 @@
     <title>Social Composer — gLitCh Labs</title>
     <link rel="icon" href="brands/current/glitchlabs-icon.png" type="image/png" />
     <link rel="stylesheet" href="css/fonts.css" />
-    <link rel="stylesheet" href="css/composer.css?v=preview-zoom-1" />
+    <link rel="stylesheet" href="css/composer.css?v=recoverable-editing-1" />
   </head>
   <body>
     <a class="skip-link" href="#stage-drop">Skip to canvas</a>
@@ -26,6 +26,11 @@
         </a>
 
 
+        <div class="history-actions" role="group" aria-label="Document history">
+          <button id="btn-undo" class="btn" type="button" disabled title="Undo · Ctrl or Command + Z">Undo</button>
+          <button id="btn-redo" class="btn" type="button" disabled title="Redo · Ctrl or Command + Shift + Z">Redo</button>
+          <output id="document-status" role="status" aria-live="polite">No canvas</output>
+        </div>
         <div class="toolbar-actions">
           <button id="btn-created-toggle" type="button" class="btn btn-ghost" aria-expanded="false" aria-controls="pane-created" title="Open saved designs">Saved designs</button>
           <button id="btn-save" type="button" class="btn btn-ghost" disabled>
@@ -36,6 +41,12 @@
           </button>
         </div>
       </header>
+      <div id="recovery-banner" class="recovery-banner" hidden>
+        <p>A previous canvas draft is available.</p>
+        <button id="btn-recover-draft" class="btn" type="button">Recover draft</button>
+        <button id="btn-discard-draft" class="btn" type="button">Discard draft</button>
+      </div>
+      <p id="session-status" class="session-status" role="status" aria-live="polite"></p>
       <div class="workspace">
         <aside class="pane editor-pane" aria-label="Design controls">
           <div class="editor-navigation"><p class="section-label">Brand</p><nav class="brand-picker" aria-label="Choose a brand">
@@ -49,6 +60,7 @@
             <button id="tab-create" type="button" role="tab" aria-selected="true" aria-controls="panel-create" tabindex="0">Create</button>
             <button id="tab-text" type="button" role="tab" aria-selected="false" aria-controls="panel-text" tabindex="-1">Text</button>
             <button id="tab-assets" type="button" role="tab" aria-selected="false" aria-controls="panel-assets" tabindex="-1">Assets</button>
+            <button id="tab-layers" type="button" role="tab" aria-selected="false" aria-controls="panel-layers" tabindex="-1">Layers</button>
           </div>
           <button id="btn-view-preview" type="button" class="btn preview-jump">View preview ↓</button>
           </div>
@@ -193,6 +205,7 @@
           </p>
 
           </section>
+          <section id="panel-layers" role="tabpanel" aria-labelledby="tab-layers" tabindex="0" hidden></section>
         </aside>
         <main class="stage-wrap" aria-label="Preview">
           <div class="canvas-toolbar">          <label class="field">
@@ -216,6 +229,7 @@
           >
             Grid
           </button>
+          <button id="btn-snap" type="button" class="btn btn-ghost" aria-pressed="true" title="Snap object movement to the placement grid">Snap</button>
           <button
             id="btn-grid-invert"
             type="button"
@@ -226,7 +240,12 @@
             Invert grid
           </button>
 
-            <details class="more-actions"><summary class="btn">More actions</summary><div class="more-actions-menu">          <button id="btn-clear" type="button" class="btn btn-ghost" disabled>
+            <details class="more-actions"><summary class="btn">More actions</summary><div class="more-actions-menu">
+          <button id="btn-export-project" type="button" class="btn btn-ghost">Export project</button>
+          <button id="btn-import-project" type="button" class="btn btn-ghost">Import project</button>
+          <button id="btn-restore-template" type="button" class="btn btn-ghost" disabled>Load template inputs</button>
+          <input id="project-input" type="file" accept=".json,application/json" hidden>
+          <button id="btn-clear" type="button" class="btn btn-ghost" disabled>
             Remove assets and text
           </button>
           <button id="btn-reset" type="button" class="btn btn-ghost" disabled>
@@ -279,12 +298,15 @@
         </aside>
       </div>
     </div>
-    <script src="js/text-boxes.js?v=document-safety-1"></script>
+    <script src="js/text-boxes.js?v=recoverable-editing-1"></script>
     <script src="js/viewport.js?v=preview-zoom-1"></script>
-    <script src="js/composer.js?v=document-safety-1"></script>
+    <script src="js/document-session.js?v=recoverable-editing-1"></script>
+    <script src="js/template-state.js?v=recoverable-editing-1"></script>
+    <script src="js/layers.js?v=recoverable-editing-1"></script>
+    <script src="js/composer.js?v=recoverable-editing-1"></script>
     <script src="js/horoscope-template.js?v=aura-cover-1"></script>
     <script src="js/lumen-template.js?v=lumen-centered-body-1"></script>
-    <script src="js/lumen.js?v=document-safety-1"></script>
-    <script src="js/horoscope.js?v=document-safety-1"></script>
+    <script src="js/lumen.js?v=recoverable-editing-1"></script>
+    <script src="js/horoscope.js?v=recoverable-editing-1"></script>
   </body>
 </html>

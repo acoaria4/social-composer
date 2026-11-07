@@ -12,6 +12,7 @@
     const input = document.createElement('textarea');
     input.id = `horoscope-reading-${sign.toLowerCase()}`;
     input.rows = 5;
+    input.maxLength = 20000;
     input.setAttribute('aria-describedby', 'horoscope-status');
     input.addEventListener('input', () => {input.removeAttribute('aria-invalid'); update();});
     label.append(name, input);
@@ -145,6 +146,60 @@
   });
   update();
 
+  function captureForm() {
+    return {
+      source: source.value,
+      date: dateInput.value,
+      language: language.value,
+      theme: theme.value,
+      fontSize: fontSize.value,
+      fontWeight: fontWeight.value,
+      readings: fields.map(({ input }) => input.value),
+    };
+  }
+
+  function restoreForm(value, savedSource) {
+    const choose = (input, next) => {
+      if (typeof next === 'string' && [...input.options].some(option => option.value === next)) input.value = next;
+    };
+    choose(source, value.source);
+    choose(language, value.language);
+    choose(theme, value.theme);
+    choose(fontWeight, String(value.fontWeight ?? ''));
+    if (typeof value.date === 'string' && (value.date === '' || /^\d{4}-\d{2}-\d{2}$/.test(value.date))) dateInput.value = value.date;
+    if (typeof value.fontSize === 'string' || typeof value.fontSize === 'number') fontSize.value = String(value.fontSize).slice(0, 12);
+    if (fontSize.checkValidity()) fontRange.value = fontSize.value;
+    let readings = Array.isArray(value.readings) ? value.readings : [];
+    const rendered = savedSource?.renderedData;
+    const originalApiReadings = savedSource?.kind === 'aura-reading' && value.source === 'api' &&
+      rendered?.date === dateInput.value && rendered?.language === language.value &&
+      Array.isArray(rendered.ordered) && rendered.ordered.length === SIGNS.length &&
+      rendered.ordered.every((reading, index) => reading?.name === SIGNS[index] && typeof reading.text === 'string');
+    if (originalApiReadings) {
+      readings = rendered.ordered.map(reading => reading.text);
+      source.value = 'manual';
+    }
+    fields.forEach(({ input }, index) => {
+      if (typeof readings[index] === 'string') input.value = readings[index].slice(0, 20000);
+      input.removeAttribute('aria-invalid');
+    });
+    update();
+    if (originalApiReadings) status.textContent = 'Saved readings loaded into Manual entry. Edit them, then Create horoscope to apply.';
+    else if (savedSource?.kind === 'aura-cover') status.textContent = 'Saved cover settings loaded. Create cover to apply your changes.';
+    else if (savedSource) status.textContent = 'Saved horoscope settings loaded. Create horoscope to apply your changes.';
+  }
+
+  window.ComposerTemplateState.register('aura', { capture: captureForm, restore: restoreForm });
+
+  function renderedSource(data) {
+    return {
+      date: data.date,
+      language: data.language,
+      ordered: data.ordered.map(reading => ({ name: reading.name, text: reading.text })),
+      disclaimer: typeof data.disclaimer === 'string' ? data.disclaimer : '',
+    };
+  }
+
   function validate(data, day, lang) {
     if (data.date !== day || data.language !== lang || data.timezone !== 'Asia/Kolkata' || !Array.isArray(data.readings) || data.readings.length !== 12) {
       throw new Error('AURA returned an incomplete, different-language, or different-date edition. No post was created.');
@@ -165,6 +220,7 @@
     const version = cancelWork();
     const ticket = window.ComposerDocument.begin('aura');
     const day = dateInput.value, lang = language.value, colors = palette();
+    const savedSource = { kind: 'aura-cover', form: captureForm() };
     request = new AbortController();
     coverButton.disabled = true;
     coverButton.textContent = 'Creating cover…';
@@ -173,7 +229,7 @@
     try {
       const blob = await template.renderCover({date:day, language:lang}, colors);
       if (version !== revision || !window.ComposerDocument.isCurrent(ticket)) return;
-      if (!await window.auraComposer.setHoroscope(blob, day, () => version === revision, 'cover', ticket)) return;
+      if (!await window.auraComposer.setHoroscope(blob, day, () => version === revision, 'cover', ticket, savedSource)) return;
       status.textContent = `Cover ready: ${day} · ${colors[0]} · ${lang === 'ta' ? 'தமிழ்' : 'English'}. Save or Download PNG to keep it.`;
     } catch (error) {
       if (version === revision) status.textContent = error.message;
@@ -185,6 +241,7 @@
     if (!dateInput.reportValidity()) return;
     const version=cancelWork(), day=dateInput.value,lang=language.value;
     const ticket = window.ComposerDocument.begin('aura');
+    const savedSource = { kind: 'aura-blank', form: captureForm() };
     request = new AbortController();
     blankButton.disabled = true;
     blankButton.textContent = 'Creating blank template…';
@@ -193,7 +250,7 @@
     try {
       const blob=await render({date:day,language:lang},palette(),{blank:true});
       if(version!==revision || !window.ComposerDocument.isCurrent(ticket))return;
-      if (!await window.auraComposer.setHoroscope(blob,day,()=>version===revision,'horoscope',ticket)) return;
+      if (!await window.auraComposer.setHoroscope(blob,day,()=>version===revision,'horoscope',ticket,savedSource)) return;
       context.textContent='';
       status.textContent='Blank template ready. Add your own readings below each sign name. Download PNG to export.';
     } catch(error) {if(version===revision)status.textContent=error.message;}
@@ -215,6 +272,7 @@
     }
     const ticket = window.ComposerDocument.begin('aura');
     const day=dateInput.value,lang=language.value,colors=palette();
+    const savedSource = { kind: 'aura-reading', form: captureForm() };
     const textStyle = typography();
     const manualData = {date:day, language:lang, ordered:fields.map(({input}, i)=>({name:SIGNS[i], text:input.value.trim()}))};
     const controller=new AbortController();request=controller;
@@ -224,7 +282,8 @@
       if(version!==revision || !window.ComposerDocument.isCurrent(ticket))return;
       const blob=await render(data,colors,textStyle);
       if(version!==revision || !window.ComposerDocument.isCurrent(ticket))return;
-      if (!await window.auraComposer.setHoroscope(blob,day,()=>version===revision,'horoscope',ticket)) return;
+      savedSource.renderedData = renderedSource(data);
+      if (!await window.auraComposer.setHoroscope(blob,day,()=>version===revision,'horoscope',ticket,savedSource)) return;
       context.textContent=manual?'':data.disclaimer;context.lang=lang;
       status.textContent=`Ready: ${day} · ${colors[0]} · ${lang==='ta'?'தமிழ்':'English'} · all 12 ${manual?'manual readings':'readings from AURA'}. Download PNG to export.`;
     } catch(error) {

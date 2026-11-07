@@ -959,3 +959,30 @@ body::before { background: #101214; }
 #zoom-level { min-width: 54px; text-align: center; font-variant-numeric: tabular-nums; }
 #zoom-hint { color: var(--muted); font-size: 12px; margin-left: 6px; flex: 1 1 230px; }
 @media (max-width: 860px) { #zoom-hint { flex-basis: 100%; margin-left: 0; } }
+
+/* Recovery and object controls; workspace reorganization follows separately. */
+.history-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.history-actions .btn, #panel-layers button, .recovery-banner .btn { min-height: 44px; }
+#document-status { color: var(--muted); font-size: 12px; }
+.session-status { margin: -8px 4px 0; min-height: 18px; color: var(--muted); font-size: 12px; }
+.recovery-banner { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 12px 16px; background: #22262c; border-radius: 8px; }
+.recovery-banner p { flex: 1 1 240px; margin: 0; }
+#layers-list { display: grid; gap: 8px; margin: 16px 0; padding: 0; list-style: none; }
+.layer-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 6px; }
+.layer-row > button { min-width: 44px; padding: 8px; }
+.layer-row .layer-select { text-align: left; overflow-wrap: anywhere; }
+.layer-name, .layer-description { display: block; }
+.layer-description { margin-top: 3px; font-size: 12px; color: var(--muted); }
+.selection-box.is-locked .handle { display: none; }
+.layer-row .layer-select[aria-pressed="true"] { border-color: #718094; background: #353d47; }
+#layer-editor { display: grid; gap: 12px; }
+.layer-geometry { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.layer-geometry label { display: grid; gap: 6px; min-width: 0; font-size: 13px; }
+.layer-geometry input { width: 100%; min-width: 0; min-height: 44px; padding: 8px; color: var(--text); background: #22262c; border: 1px solid #3b414a; border-radius: 8px; }
+.layer-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+#panel-layers [hidden] { display: none !important; }
+@media (max-width: 860px) {
+  .history-actions { width: 100%; order: 2; }
+  .toolbar-actions { order: 1; }
+  .recovery-banner { padding: 12px; gap: 8px; }
+}

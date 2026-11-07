@@ -118,17 +118,26 @@
       }
       const box = current();
       selection.value = box?.id || ''; el('text-editor').hidden = !box;
-      if (box && editingId !== box.id) content.value = box.text;
+      if (box && (editingId !== box.id || document.activeElement !== content)) content.value = box.text;
       editingId = box?.id || null;
-      for (const prop of ['x', 'y', 'width']) if (box && document.activeElement !== el(`text-${prop}`)) el(`text-${prop}`).value = Math.round(box[prop]);
+      content.disabled = Boolean(box?.locked);
+      el('text-delete').disabled = Boolean(box?.locked);
+      for (const prop of ['x', 'y', 'width']) {
+        const input = el(`text-${prop}`);
+        input.disabled = Boolean(box?.locked);
+        if (box && document.activeElement !== input) input.value = Math.round(box[prop]);
+      }
+      const stylesLocked = boxes.some(o => o.locked);
       for (const kind of ['header', 'body']) for (const prop of ['font', 'size', 'weight', 'color']) {
         const input = el(`text-${kind}-${prop}`);
+        input.disabled = stylesLocked;
         if (document.activeElement !== input) input.value = state.textStyles[kind][prop];
       }
       if (!state.bgImage) status.textContent = 'Upload a background or start a blank canvas first.';
       else if (!state.textReady) status.textContent = 'Loading text fonts…';
-      else if (boxes.some(o => overflow(o, state.width, state.height) === 'width')) status.textContent = 'A text box is too narrow for its text. Widen it or reduce the shared font size before exporting.';
-      else if (boxes.some(o => overflow(o, state.width, state.height) === 'canvas')) status.textContent = 'Text extends outside the canvas. Move the box, widen it, or reduce the shared font size before exporting.';
+      else if (boxes.some(o => !o.hidden && overflow(o, state.width, state.height) === 'width')) status.textContent = 'A text box is too narrow for its text. Widen it or reduce the shared font size before exporting.';
+      else if (boxes.some(o => !o.hidden && overflow(o, state.width, state.height) === 'canvas')) status.textContent = 'Text extends outside the canvas. Move the box, widen it, or reduce the shared font size before exporting.';
+      else if (stylesLocked) status.textContent = 'Unlock all text layers to change their shared styles. Locked layers cannot be edited or deleted.';
       else status.textContent = boxes.length ? `${boxes.length} text box${boxes.length === 1 ? '' : 'es'} · Style changes apply to all boxes.` : 'Your background is ready. Add a text box to begin.';
     }
     el('text-add').addEventListener('click', () => {
@@ -138,23 +147,23 @@
       state.overlays.push(box); state.selectedId = box.id; changed(); content.focus();
     });
     selection.addEventListener('change', () => { state.selectedId = selection.value || null; changed(); });
-    content.addEventListener('input', () => { const box = current(); if (box) { box.text = content.value; changed(); } });
+    content.addEventListener('input', () => { const box = current(); if (box && !box.locked) { box.text = content.value; changed(); } });
     content.maxLength = 20000;
     el('text-delete').addEventListener('click', remove);
     for (const prop of ['x', 'y', 'width']) el(`text-${prop}`).addEventListener('input', event => {
       const input = event.target, box = current();
-      if (box && input.value !== '' && input.checkValidity() && Number.isFinite(input.valueAsNumber)) { box[prop] = input.valueAsNumber; changed(); }
+      if (box && !box.locked && input.value !== '' && input.checkValidity() && Number.isFinite(input.valueAsNumber)) { box[prop] = input.valueAsNumber; changed(); }
     });
     for (const kind of ['header', 'body']) for (const prop of ['font', 'size', 'weight', 'color']) {
       el(`text-${kind}-${prop}`).addEventListener('input', event => {
-        const input = event.target; if (!input.checkValidity()) return;
+        const input = event.target; if (!input.checkValidity() || state.overlays.some(o => o.type === 'text' && o.locked)) return;
         state.textStyles[kind][prop] = ['size', 'weight'].includes(prop) ? Number(input.value) : input.value;
         if (prop === 'font' || prop === 'weight') loadFonts(); else changed();
       });
     }
     content.addEventListener('paste', event => {
       const html = event.clipboardData.getData('text/html');
-      if (!html || state.textStyles.imported) return;
+      if (!html || state.textStyles.imported || state.overlays.some(o => o.type === 'text' && o.locked)) return;
       // Parse clipboard markup inertly. Never insert it into the page or load its resources.
       const template = document.createElement('template');
       template.innerHTML = html;

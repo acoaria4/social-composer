@@ -43,6 +43,7 @@
   const CREATED_MAX_COUNT = 12;
   const CREATED_MAX_BYTES = 2 * 1024 * 1024;
   const GRID_STORAGE_KEY = "glitch-social-composer-show-grid";
+  const SNAP_STORAGE_KEY = "glitch-social-composer-snap-grid";
   const GRID_INVERT_STORAGE_KEY = "glitch-social-composer-grid-invert";
   const CREATED_PANE_STORAGE_KEY = "glitch-social-composer-created-pane-open";
   const TINT_STORAGE_KEY = "glitch-social-composer-tint-hex";
@@ -82,6 +83,7 @@
     clear: document.getElementById("btn-clear"),
     reset: document.getElementById("btn-reset"),
     gridToggle: document.getElementById("btn-grid"),
+    snapToggle: document.getElementById("btn-snap"),
     gridInvert: document.getElementById("btn-grid-invert"),
     meta: document.getElementById("meta"),
   };
@@ -101,6 +103,7 @@
     postDate: null,
     auraPostType: null,
     templateBrand: null,
+    templateSource: null,
     /** canvas pixel size (export space) */
     width: 0,
     height: 0,
@@ -120,14 +123,32 @@
     /** @type {Array<{id:string, label:string, thumbDataUrl:string, width:number, height:number, createdAt:number, composition:object}>} */
     createdPics: [],
     showGrid: true,
+    snapToGrid: true,
     gridInvert: false,
     createdPaneOpen: false,
     tintHex: DEFAULT_TINT_HEX,
     tintPanelOpen: false,
+    assetLabels: new Map(BRANDS.flatMap(group => group.assets.map(asset => [asset.id, asset.label]))),
   };
 
   let textTools;
   let viewport;
+  let layerTools;
+  let history;
+  let historyReady = false;
+  let historyApplying = false;
+  let savedDocumentKey = null;
+  let savedDocumentId = null;
+  let lastDocumentKey = null;
+  let recoveryReady = false;
+  let recoveryCandidate = null;
+  let sessionEdited = false;
+  let hasFormDraft = false;
+  let recoveryTimer;
+  let recoveryRevision = 0;
+  const imageIds = new WeakMap();
+  const rasterCopies = new WeakMap();
+  let imageSequence = 0;
   let lumenFormat = "1080x1920";
   const lumenActive = () => document.querySelector('[data-brand="lumen"]').getAttribute("aria-pressed") === "true";
   let idSeq = 1;
@@ -156,7 +177,212 @@
   }
 
   function snapCoord(v) {
-    return state.showGrid ? snap(v) : Math.round(v);
+    return state.snapToGrid ? snap(v) : Math.round(v);
+  }
+
+  const copyValue = value => value == null ? null : JSON.parse(JSON.stringify(value));
+  function copyOverlay(overlay) {
+    return {
+      id: overlay.id, type: overlay.type, assetId: overlay.assetId, text: overlay.text,
+      x: overlay.x, y: overlay.y, width: overlay.width, height: overlay.height,
+      hidden: Boolean(overlay.hidden), locked: Boolean(overlay.locked),
+    };
+  }
+
+  function imageIdentity(image) {
+    if (!image) return 0;
+    if (!imageIds.has(image)) imageIds.set(image, ++imageSequence);
+    return imageIds.get(image);
+  }
+
+  function portableImage(image) {
+    if (!rasterCopies.has(image)) rasterCopies.set(image, sourceToDataUrl(image, "image/png"));
+    return rasterCopies.get(image);
+  }
+
+  function historyRetainedBytes(snapshots) {
+    const images = new Set();
+    for (const snapshot of snapshots) {
+      if (snapshot.bgImage) images.add(snapshot.bgImage);
+      for (const image of snapshot.images.values()) images.add(image);
+    }
+    let bytes = 0;
+    for (const image of images) {
+      bytes += (image.naturalWidth || image.width) * (image.naturalHeight || image.height) * 4;
+      bytes += (rasterCopies.get(image)?.length || 0) * 2;
+    }
+    return bytes;
+  }
+
+  function captureDocument() {
+    const overlays = state.overlays.map(copyOverlay);
+    const images = new Map();
+    const labels = new Map();
+    for (const layer of overlays) {
+      if (layer.type === "text") continue;
+      if (assetImages.has(layer.assetId)) images.set(layer.assetId, assetImages.get(layer.assetId));
+      labels.set(layer.assetId, state.assetLabels.get(layer.assetId) || layer.assetId);
+    }
+    const snapshot = {
+      bgImage: state.bgImage, postDate: state.postDate, auraPostType: state.auraPostType,
+      templateBrand: state.templateBrand, templateSource: copyValue(state.templateSource),
+      presetKey: state.presetKey, textStyles: window.ComposerText.normalize(state.textStyles),
+      overlays, images, labels, selectedId: state.selectedId, tintHex: state.tintHex,
+    };
+    snapshot.key = JSON.stringify({
+      background: imageIdentity(snapshot.bgImage), postDate: snapshot.postDate, auraPostType: snapshot.auraPostType,
+      templateBrand: snapshot.templateBrand, templateSource: snapshot.templateSource, presetKey: snapshot.presetKey,
+      textStyles: snapshot.textStyles,
+      overlays: overlays.map(layer => layer.type === "text" ? { ...layer, height: undefined } : layer),
+      images: [...images].map(([id, image]) => [id, imageIdentity(image)]),
+    });
+    return snapshot;
+  }
+
+  function updateDocumentStatus() {
+    document.getElementById("btn-undo").disabled = !history?.canUndo();
+    document.getElementById("btn-redo").disabled = !history?.canRedo();
+    document.getElementById("document-status").textContent = !state.bgImage ? "No canvas"
+      : lastDocumentKey === savedDocumentKey ? "Saved locally" : "Unsaved changes";
+  }
+
+  function documentGroup(explicit) {
+    if (explicit) return explicit;
+    if (state.interaction) return "pointer";
+    const active = document.activeElement;
+    return active?.matches("input, textarea, select") ? `field:${active.id}` : null;
+  }
+
+  function documentDrawn(group) {
+    if (!historyReady || historyApplying) return;
+    history.record(documentGroup(group));
+    updateDocumentStatus();
+  }
+
+  function documentChanged() {
+    lastDocumentKey = captureDocument().key;
+    sessionEdited = true;
+    recoveryCandidate = null;
+    document.getElementById("recovery-banner").hidden = true;
+    updateDocumentStatus();
+    scheduleRecovery();
+  }
+
+  function applyHistory(snapshot) {
+    beginDocumentOperation();
+    historyApplying = true;
+    const sourceChanged = JSON.stringify(state.templateSource) !== JSON.stringify(snapshot.templateSource);
+    state.bgImage = snapshot.bgImage;
+    state.postDate = snapshot.postDate;
+    state.auraPostType = snapshot.auraPostType;
+    state.templateBrand = snapshot.templateBrand;
+    state.templateSource = copyValue(snapshot.templateSource);
+    state.presetKey = snapshot.presetKey;
+    state.textStyles = window.ComposerText.normalize(snapshot.textStyles);
+    state.overlays = snapshot.overlays.map(copyOverlay);
+    state.selectedId = state.overlays.some(layer => layer.id === snapshot.selectedId) ? snapshot.selectedId : null;
+    state.interaction = null;
+    for (const [id, image] of snapshot.images) assetImages.set(id, image);
+    for (const [id, label] of snapshot.labels) state.assetLabels.set(id, label);
+    syncTintControls(snapshot.tintHex);
+    const tintImage = snapshot.images.get(CUSTOM_COLOR_ID);
+    if (tintImage) {
+      const chip = document.querySelector("#chip-custom-color .asset-thumb img");
+      if (chip) chip.src = sourceToDataUrl(tintImage, "image/png");
+    } else if (assetImages.has(TINT_SOURCE_ID)) applyTintColor(snapshot.tintHex, { persist: false });
+    els.preset.value = state.presetKey;
+    if (state.templateBrand === "lumen") lumenFormat = state.presetKey;
+    if (sourceChanged && state.templateSource) window.ComposerTemplateState.restoreSource(state.templateSource);
+    recomputeCanvasSize();
+    viewport?.reset();
+    fitCanvasElement();
+    draw();
+    historyApplying = false;
+    lastDocumentKey = snapshot.key;
+    textTools?.loadFonts();
+  }
+
+  function portableProject(snapshot, forms = window.ComposerTemplateState.captureForms()) {
+    let composition = null;
+    if (snapshot.bgImage) {
+      const assetDataUrls = {}, assetLabels = {};
+      for (const [id, image] of snapshot.images) {
+        assetDataUrls[id] = portableImage(image);
+        assetLabels[id] = snapshot.labels.get(id) || id;
+      }
+      composition = {
+        bgDataUrl: portableImage(snapshot.bgImage),
+        postDate: snapshot.postDate, auraPostType: snapshot.auraPostType,
+        templateBrand: snapshot.templateBrand, templateSource: copyValue(snapshot.templateSource),
+        presetKey: snapshot.presetKey, textStyles: snapshot.textStyles,
+        tintHex: snapshot.tintHex, overlays: snapshot.overlays.map(copyOverlay), assetDataUrls, assetLabels,
+        showGrid: state.showGrid, snapToGrid: state.snapToGrid, gridInvert: state.gridInvert,
+      };
+    }
+    return window.ComposerSession.validateProject({ format: "social-composer-project", version: 1, composition, forms });
+  }
+
+  function scheduleRecovery() {
+    if (!recoveryReady || recoveryCandidate) return;
+    const version = ++recoveryRevision;
+    clearTimeout(recoveryTimer);
+    document.getElementById("session-status").textContent = "Saving recovery draft…";
+    const snapshot = captureDocument(), forms = window.ComposerTemplateState.captureForms();
+    recoveryTimer = setTimeout(async () => {
+      try {
+        const project = portableProject(snapshot, forms);
+        if (version !== recoveryRevision) return;
+        await window.ComposerSession.writeRecovery(project);
+        if (version === recoveryRevision) document.getElementById("session-status").textContent = "Recovery draft saved in this browser.";
+      } catch {
+        if (version === recoveryRevision) document.getElementById("session-status").textContent = "Recovery is unavailable. Export a project file to keep an editable backup.";
+      }
+    }, 350);
+  }
+
+  async function restoreProject(project, label, ticket = beginDocumentOperation()) {
+    let restored;
+    if (project.composition) restored = await restoreComposition({ composition: project.composition, label }, { portable: true, markSaved: false, ticket });
+    else { restored = resetSession(ticket); }
+    if (restored && currentDocumentOperation(ticket)) {
+      window.ComposerTemplateState.restoreForms(project.forms || {});
+      scheduleRecovery();
+    }
+    return restored;
+  }
+
+  async function exportProject() {
+    const status = document.getElementById("session-status");
+    status.textContent = "Preparing project file…";
+    try {
+      window.ComposerTemplateState.flushForms();
+      const project = portableProject(captureDocument());
+      const blob = new Blob([JSON.stringify(project)], { type: "application/json" });
+      if (blob.size > 50 * 1024 * 1024) throw new Error("The project exceeds the 50 MB file limit.");
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "social-composer-project.json";
+      link.click();
+      URL.revokeObjectURL(link.href);
+      status.textContent = "Project exported with editable layers, template inputs, and embedded images.";
+    } catch (error) { status.textContent = error.message || "The project could not be exported."; }
+  }
+
+  async function importProject(file) {
+    const ticket = beginDocumentOperation();
+    const status = document.getElementById("session-status");
+    status.textContent = "Opening project…";
+    try {
+      if (file.size > 50 * 1024 * 1024) throw new Error("Choose a project file no larger than 50 MB.");
+      const project = window.ComposerSession.validateProject(JSON.parse(await file.text()));
+      if (!currentDocumentOperation(ticket)) return;
+      const restored = await restoreProject(project, file.name, ticket);
+      if (currentDocumentOperation(ticket)) status.textContent = restored
+        ? "Project opened. Its layers and template inputs are editable."
+        : "The project could not be opened. Your current canvas was kept.";
+    } catch (error) {
+      if (currentDocumentOperation(ticket)) status.textContent = `Project not opened: ${error.message || "invalid file"}`;
+    }
   }
 
   function loadShowGrid() {
@@ -217,6 +443,7 @@
   function syncGridToggle() {
     if (!els.gridToggle) return;
     els.gridToggle.setAttribute("aria-pressed", state.showGrid ? "true" : "false");
+    els.snapToggle?.setAttribute("aria-pressed", state.snapToGrid ? "true" : "false");
   }
 
   function syncGridInvert() {
@@ -322,11 +549,12 @@
     updateViewMetrics();
   }
 
-  function draw() {
+  function draw(group) {
     if (!state.bgImage || !state.width) {
       ctx.clearRect(0, 0, els.canvas.width, els.canvas.height);
       syncSelectionBox();
       updateChrome();
+      documentDrawn(group);
       return;
     }
 
@@ -342,6 +570,7 @@
     drawGrid();
 
     for (const ov of state.overlays) {
+      if (ov.hidden) continue;
       if (ov.type === "text") { window.ComposerText.draw(ctx, ov, state.textStyles); continue; }
       const img = assetImages.get(ov.assetId);
       if (!img) continue;
@@ -350,6 +579,7 @@
 
     syncSelectionBox();
     updateChrome();
+    documentDrawn(group);
   }
 
   function selectedOverlay() {
@@ -358,7 +588,7 @@
 
   function syncSelectionBox() {
     const ov = selectedOverlay();
-    if (!ov || !state.bgImage) {
+    if (!ov || ov.hidden || !state.bgImage) {
       els.selection.hidden = true;
       return;
     }
@@ -369,6 +599,7 @@
     const w = ov.width * s;
     const h = ov.height * s;
     els.selection.hidden = false;
+    els.selection.classList.toggle("is-locked", Boolean(ov.locked));
     els.selection.style.left = `${left}px`;
     els.selection.style.top = `${top}px`;
     els.selection.style.width = `${w}px`;
@@ -389,7 +620,9 @@
       ? "AURA covers and readings use Story / Reel · 9:16 · 1080×1920. Start a blank canvas or upload a background to use other sizes."
       : "Choose Canvas size above, then select Create Lumen post to apply the layout.";
     textTools?.sync();
-    const textOverflow = state.overlays.filter(o => o.type === "text").map(o => window.ComposerText.overflow(o, state.width, state.height)).find(Boolean);
+    layerTools?.sync();
+    document.getElementById("btn-restore-template").disabled = !state.templateSource;
+    const textOverflow = state.overlays.filter(o => o.type === "text" && !o.hidden).map(o => window.ComposerText.overflow(o, state.width, state.height)).find(Boolean);
     const textOutside = Boolean(textOverflow);
     els.download.disabled = !hasBg || !state.textReady || textOutside;
     if (els.save) els.save.disabled = !hasBg || !state.textReady;
@@ -413,12 +646,14 @@
       : textOutside ? "Text extends outside the canvas. Adjust the boxes in Text to enable PNG export." : `${mode} · export ${state.width}×${state.height} · ${marks}`;
   }
 
-  function resetSession() {
-    beginDocumentOperation();
+  function resetSession(ticket) {
+    const operation = typeof ticket === "number" ? ticket : beginDocumentOperation();
+    if (!currentDocumentOperation(operation)) return false;
     state.bgImage = null;
     state.postDate = null;
     state.auraPostType = null;
     state.templateBrand = null;
+    state.templateSource = null;
     state.overlays = [];
     state.selectedId = null;
     state.width = 0;
@@ -426,6 +661,7 @@
     if (els.bgInput) els.bgInput.value = "";
     fitCanvasElement();
     draw();
+    return true;
   }
 
   function loadImageFromFile(file) {
@@ -468,6 +704,7 @@
     state.postDate = metadata.postDate || null;
     state.auraPostType = metadata.auraPostType || null;
     state.templateBrand = metadata.templateBrand || null;
+    state.templateSource = copyValue(metadata.templateSource);
     state.overlays = [];
     state.selectedId = null;
     recomputeCanvasSize();
@@ -523,6 +760,7 @@
   function hitTest(cx, cy) {
     for (let i = state.overlays.length - 1; i >= 0; i--) {
       const o = state.overlays[i];
+      if (o.hidden) continue;
       if (
         cx >= o.x &&
         cy >= o.y &&
@@ -545,12 +783,14 @@
 
   function deleteSelected() {
     if (!state.selectedId) return;
+    if (selectedOverlay()?.locked) return;
     state.overlays = state.overlays.filter((o) => o.id !== state.selectedId);
     state.selectedId = null;
     draw();
   }
 
   function startMove(ov, cx, cy) {
+    if (ov.locked) { state.selectedId = ov.id; draw(); return; }
     if (ov.type === "text") selectEditorTab(document.getElementById("tab-text"));
     state.selectedId = ov.id;
     state.interaction = {
@@ -565,6 +805,7 @@
   }
 
   function startScale(ov, handle, cx, cy) {
+    if (ov.locked) return;
     state.selectedId = ov.id;
     state.interaction = {
       type: "scale",
@@ -585,7 +826,7 @@
     const it = state.interaction;
     if (!it) return;
     const ov = state.overlays.find((o) => o.id === it.id);
-    if (!ov) return;
+    if (!ov || ov.locked || ov.hidden) return;
 
     if (it.type === "move") {
       ov.x = snapCoord(it.origX + (cx - it.startX));
@@ -655,6 +896,7 @@
 
   function endInteraction() {
     state.interaction = null;
+    history?.endGroup();
   }
 
   function renderExportCanvas() {
@@ -670,6 +912,7 @@
     );
     c.drawImage(state.bgImage, cover.x, cover.y, cover.w, cover.h);
     for (const ov of state.overlays) {
+      if (ov.hidden) continue;
       if (ov.type === "text") { window.ComposerText.draw(c, ov, state.textStyles); continue; }
       const img = assetImages.get(ov.assetId);
       if (!img) continue;
@@ -775,6 +1018,8 @@
     n += c.auraPostType?.length || 0;
     n += c.tintHex?.length || 0;
     n += JSON.stringify(c.textStyles || {}).length;
+    n += JSON.stringify(c.templateSource || {}).length;
+    n += JSON.stringify(c.assetLabels || {}).length;
     for (const url of Object.values(c.assetDataUrls || {})) {
       n += url?.length || 0;
     }
@@ -850,6 +1095,8 @@
             templateBrand: a.composition.templateBrand === "lumen" ? "lumen" : null,
             postDate: /^\d{4}-\d{2}-\d{2}$/.test(a.composition.postDate || "") ? a.composition.postDate : null,
             auraPostType: a.composition.auraPostType === "cover" ? "cover" : null,
+            templateSource: copyValue(a.composition.templateSource),
+            assetLabels: a.composition.assetLabels || {},
             presetKey:
               typeof a.composition.presetKey === "string"
                 ? a.composition.presetKey
@@ -877,6 +1124,8 @@
                 y: Number(o.y),
                 width: Number(o.width),
                 height: Number(o.height),
+                hidden: o.hidden === true,
+                locked: o.locked === true,
               })),
             assetDataUrls: a.composition.assetDataUrls,
           },
@@ -913,6 +1162,8 @@
         postDate: state.postDate,
         auraPostType: state.auraPostType,
         templateBrand: state.templateBrand,
+        templateSource: copyValue(state.templateSource),
+        assetLabels: Object.fromEntries(state.overlays.filter(layer => layer.type !== "text").map(layer => [layer.assetId, state.assetLabels.get(layer.assetId) || layer.assetId])),
         presetKey: state.presetKey || "native",
         tintHex: state.tintHex || DEFAULT_TINT_HEX,
         textStyles: window.ComposerText.normalize(state.textStyles),
@@ -924,6 +1175,8 @@
           y: o.y,
           width: o.width,
           height: o.height,
+          hidden: Boolean(o.hidden),
+          locked: Boolean(o.locked),
         })),
         assetDataUrls: collectAssetDataUrls(),
       },
@@ -964,6 +1217,10 @@
     }
     state.createdPics = nextPics;
     renderCreatedPane();
+    savedDocumentKey = captureDocument().key;
+    savedDocumentId = entry.id;
+    lastDocumentKey = savedDocumentKey;
+    updateDocumentStatus();
     reportCreatedStatus(`Saved “${entry.label}” in this browser.`, "success");
   }
 
@@ -976,12 +1233,18 @@
       return;
     }
     state.createdPics = nextPics;
+    if (savedDocumentId === id) {
+      savedDocumentId = null;
+      savedDocumentKey = null;
+      updateDocumentStatus();
+    }
     renderCreatedPane();
     reportCreatedStatus(`Removed “${pic.label}” from this browser.`, "success");
   }
 
-  async function restoreComposition(pic) {
-    const ticket = beginDocumentOperation();
+  async function restoreComposition(pic, options = {}) {
+    const ticket = options.ticket ?? beginDocumentOperation();
+    if (!currentDocumentOperation(ticket)) return false;
     const comp = pic?.composition;
     if (!isValidComposition(comp)) {
       els.meta.textContent = "Saved composition is incomplete";
@@ -991,6 +1254,12 @@
     try {
       const bg = await loadImageUrl(comp.bgDataUrl);
       if (!currentDocumentOperation(ticket)) return false;
+      let decodedPixels = bg.naturalWidth * bg.naturalHeight;
+      const checkProjectPixels = image => {
+        if (!options.portable) return;
+        if (image.naturalWidth > 16384 || image.naturalHeight > 16384 || decodedPixels > 64000000) throw new Error("The project images are too large to open safely.");
+      };
+      checkProjectPixels(bg);
       const restoredImages = new Map();
 
       for (const [assetId, dataUrl] of Object.entries(comp.assetDataUrls || {})) {
@@ -999,6 +1268,8 @@
         }
         const img = await loadImageUrl(dataUrl);
         if (!currentDocumentOperation(ticket)) return false;
+        decodedPixels += img.naturalWidth * img.naturalHeight;
+        checkProjectPixels(img);
         restoredImages.set(assetId, img);
       }
 
@@ -1027,14 +1298,23 @@
 
       if (!currentDocumentOperation(ticket)) return false;
       // Decode and load fonts off-state, then commit the complete document together.
+      const aliases = new Map();
+      if (options.portable) {
+        let sequence = 0;
+        for (const assetId of restoredImages.keys()) aliases.set(assetId, `project-${ticket}-${++sequence}`);
+      }
       for (const [assetId, image] of restoredImages) {
-        assetImages.set(assetId, image);
+        const mappedId = aliases.get(assetId) || assetId;
+        assetImages.set(mappedId, image);
+        state.assetLabels.set(mappedId, comp.assetLabels?.[assetId] || state.assetLabels.get(assetId) || assetId);
+        if (options.portable) continue;
         if (!assetId.startsWith("custom-")) continue;
         const dataUrl = comp.assetDataUrls[assetId];
         const existing = state.customAssets.find(asset => asset.id === assetId);
         if (existing) existing.dataUrl = dataUrl;
         else state.customAssets.push({ id: assetId, label: "Restored asset", dataUrl });
       }
+      if (options.portable && restoredImages.has(CUSTOM_COLOR_ID)) assetImages.set(CUSTOM_COLOR_ID, restoredImages.get(CUSTOM_COLOR_ID));
       if (tint) {
         syncTintControls(tint.hex);
         const chipImg = document.querySelector("#chip-custom-color .asset-thumb img");
@@ -1044,6 +1324,7 @@
       state.postDate = comp.postDate || null;
       state.auraPostType = comp.auraPostType === "cover" ? "cover" : null;
       state.templateBrand = !state.postDate && comp.templateBrand === "lumen" ? "lumen" : null;
+      state.templateSource = copyValue(comp.templateSource);
       state.presetKey = state.postDate ? "1080x1920"
         : Object.prototype.hasOwnProperty.call(PRESETS, comp.presetKey) ? comp.presetKey : "native";
       if (els.preset) els.preset.value = state.presetKey;
@@ -1055,13 +1336,21 @@
         type: o.type,
         text: o.text,
         id: nextId(),
-        assetId: o.assetId,
+        assetId: aliases.get(o.assetId) || o.assetId,
         x: o.x,
         y: o.y,
         width: o.width,
         height: o.height,
+        hidden: o.hidden === true,
+        locked: o.locked === true,
       }));
       state.selectedId = null;
+      if (state.templateSource) window.ComposerTemplateState.restoreSource(state.templateSource);
+      for (const preference of ["showGrid", "snapToGrid", "gridInvert"]) {
+        if (typeof comp[preference] === "boolean") state[preference] = comp[preference];
+      }
+      syncGridToggle();
+      syncGridInvert();
 
       recomputeCanvasSize();
       viewport?.reset();
@@ -1069,6 +1358,11 @@
       saveCustomAssets();
       renderCustomPane();
       draw();
+      if (options.markSaved !== false) {
+        savedDocumentKey = captureDocument().key;
+        savedDocumentId = pic.id || null;
+        updateDocumentStatus();
+      }
       els.meta.textContent = fontWarning
         ? `Restored “${pic.label}” with fallback fonts because a font could not load.`
         : `Restored “${pic.label}”`;
@@ -1365,6 +1659,10 @@
   }
 
   function applyTintColor(hex, { persist = true } = {}) {
+    if (!historyApplying && hex !== state.tintHex && state.overlays.some(layer => layer.assetId === CUSTOM_COLOR_ID && layer.locked)) {
+      els.meta.textContent = "Unlock tinted layers before changing their shared color.";
+      return false;
+    }
     const parsed = syncTintControls(hex);
     if (!parsed) return false;
     const source = assetImages.get(TINT_SOURCE_ID);
@@ -1435,7 +1733,6 @@
     els.tintHex.addEventListener("input", () => {
       const parsed = parseHex(els.tintHex.value);
       if (!parsed) return;
-      syncTintControls(parsed.hex, { fromHexInput: true });
       applyTintColor(parsed.hex);
     });
 
@@ -1524,6 +1821,7 @@
     if (!els.customGrid) return;
     els.customGrid.replaceChildren();
     for (const asset of state.customAssets) {
+      state.assetLabels.set(asset.id, asset.label);
       els.customGrid.appendChild(
         buildAssetChip(
           { id: asset.id, label: asset.label, src: asset.dataUrl },
@@ -1583,8 +1881,8 @@
 
   function removeCustomAsset(assetId) {
     state.customAssets = state.customAssets.filter((a) => a.id !== assetId);
-    assetImages.delete(assetId);
-    state.overlays = state.overlays.filter((o) => o.assetId !== assetId);
+    if (!state.overlays.some(layer => layer.assetId === assetId && layer.locked)) assetImages.delete(assetId);
+    state.overlays = state.overlays.filter((o) => o.assetId !== assetId || o.locked);
     if (state.selectedId && !state.overlays.some((o) => o.id === state.selectedId)) {
       state.selectedId = null;
     }
@@ -1626,7 +1924,7 @@
 
   // Shared canvas pipeline: template posts retain normal placement, saving and export.
   window.auraComposer = {
-    async setHoroscope(blob, date, isCurrent = () => true, postType = "horoscope", ticket) {
+    async setHoroscope(blob, date, isCurrent = () => true, postType = "horoscope", ticket, templateSource = null) {
       if (!isCurrent() || (ticket !== undefined && !currentDocumentOperation(ticket))) return false;
       const operation = ticket ?? beginDocumentOperation("aura");
       return setBackground(blob, () => {
@@ -1636,13 +1934,20 @@
         state.showGrid = false;
         syncGridToggle();
         return true;
-      }, operation, { postDate: date, auraPostType: postType === "cover" ? "cover" : "horoscope" });
+      }, operation, { postDate: date, auraPostType: postType === "cover" ? "cover" : "horoscope", templateSource });
     }
   };
 
   window.lumenComposer = {
     getFormat: () => Object.hasOwn(window.LumenFactTemplate.formats, els.preset.value) ? els.preset.value : lumenFormat,
-    async setFact(blob, format = "1080x1920", isCurrent = () => true, ticket) {
+    setDraftFormat(format) {
+      if (!Object.hasOwn(window.LumenFactTemplate.formats, format)) return false;
+      lumenFormat = format;
+      if (lumenActive()) els.preset.value = format;
+      updateChrome();
+      return true;
+    },
+    async setFact(blob, format = "1080x1920", isCurrent = () => true, ticket, templateSource = null) {
       if (!Object.hasOwn(window.LumenFactTemplate.formats, format)) throw new Error("Choose a valid Lumen format.");
       if (!isCurrent() || (ticket !== undefined && !currentDocumentOperation(ticket))) return false;
       const operation = ticket ?? beginDocumentOperation("lumen");
@@ -1650,7 +1955,7 @@
         if(!isCurrent())return false;
         lumenFormat=format;state.presetKey=format;els.preset.value=state.presetKey;
         state.showGrid=false;syncGridToggle();return true;
-      }, operation, { templateBrand: "lumen" });
+      }, operation, { templateBrand: "lumen", templateSource });
     }
   };
 
@@ -1711,8 +2016,7 @@
     try { await setBlankBackground(); }
     catch (error) { els.meta.textContent = error.message; }
   });
-  document.querySelectorAll("[data-brand]").forEach(button => {
-    button.addEventListener("click", () => {
+  function selectBrand(button) {
       closeTintPanel();
       document.querySelectorAll("[data-brand]").forEach(other => {
         other.setAttribute("aria-pressed", String(other === button));
@@ -1723,7 +2027,9 @@
       });
       els.preset.value = lumenActive() || state.templateBrand === "lumen" ? lumenFormat : state.presetKey;
       updateChrome();
-    });
+  }
+  document.querySelectorAll("[data-brand]").forEach(button => {
+    button.addEventListener("click", () => selectBrand(button));
   });
 
   els.bgInput.addEventListener("change", async (e) => {
@@ -1778,6 +2084,7 @@
       const sy = state.height / prevH;
       const s = Math.min(sx, sy);
       for (const ov of state.overlays) {
+        if (ov.locked) continue;
         ov.x = Math.round(ov.x * sx);
         ov.y = Math.round(ov.y * sy);
         ov.width = Math.round(ov.width * s);
@@ -1793,8 +2100,8 @@
     els.save.addEventListener("click", saveCompositionToLibrary);
   }
   els.clear.addEventListener("click", () => {
-    state.overlays = [];
-    state.selectedId = null;
+    state.overlays = state.overlays.filter(layer => layer.locked);
+    if (!state.overlays.some(layer => layer.id === state.selectedId)) state.selectedId = null;
     draw();
   });
   els.reset.addEventListener("click", resetSession);
@@ -1805,8 +2112,16 @@
       saveShowGrid();
       syncGridToggle();
       draw();
+      scheduleRecovery();
     });
   }
+
+  els.snapToggle?.addEventListener("click", () => {
+    state.snapToGrid = !state.snapToGrid;
+    try { localStorage.setItem(SNAP_STORAGE_KEY, state.snapToGrid ? "1" : "0"); } catch { /* Preference only. */ }
+    syncGridToggle();
+    scheduleRecovery();
+  });
 
   if (els.gridInvert) {
     els.gridInvert.addEventListener("click", () => {
@@ -1814,6 +2129,7 @@
       saveGridInvert();
       syncGridInvert();
       draw();
+      scheduleRecovery();
     });
   }
 
@@ -1913,10 +2229,33 @@
   els.stage.addEventListener("pointercancel", endInteraction);
 
   window.addEventListener("keydown", (e) => {
+    const typing = e.target?.closest("input,textarea,select,[contenteditable='true']");
+    if (!typing && (e.ctrlKey || e.metaKey) && !e.altKey) {
+      const key = e.key.toLowerCase();
+      if (key === "z" || key === "y") {
+        e.preventDefault();
+        if (key === "y" || e.shiftKey) history?.redo(); else history?.undo();
+        return;
+      }
+    }
+    const editingFocus = els.stage.contains(document.activeElement) || document.getElementById("panel-layers").contains(document.activeElement);
+    if (!typing && editingFocus && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
+      const layer = selectedOverlay();
+      if (layer && !layer.locked) {
+        e.preventDefault();
+        const amount = e.shiftKey ? 10 : 1;
+        if (e.key === "ArrowLeft") layer.x -= amount;
+        if (e.key === "ArrowRight") layer.x += amount;
+        if (e.key === "ArrowUp") layer.y -= amount;
+        if (e.key === "ArrowDown") layer.y += amount;
+        draw("nudge");
+      }
+      return;
+    }
     if (e.key === "Delete" || e.key === "Backspace") {
       const tag = (e.target && e.target.tagName) || "";
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      if (state.selectedId) {
+      if (state.selectedId && editingFocus) {
         e.preventDefault();
         deleteSelected();
       }
@@ -1926,6 +2265,84 @@
       draw();
     }
   });
+
+  window.addEventListener("keyup", event => {
+    if (event.key.startsWith("Arrow")) history?.endGroup();
+  });
+  document.addEventListener("focusout", () => history?.endGroup());
+  document.getElementById("btn-undo").addEventListener("click", () => history?.undo());
+  document.getElementById("btn-redo").addEventListener("click", () => history?.redo());
+  document.getElementById("btn-export-project").addEventListener("click", exportProject);
+  document.getElementById("btn-restore-template").addEventListener("click", () => {
+    if (!state.templateSource) return;
+    beginDocumentOperation();
+    const brand = state.templateSource.kind === "lumen-fact" ? "lumen" : "aura";
+    window.ComposerTemplateState.restoreSource(state.templateSource);
+    selectBrand(document.querySelector(`[data-brand="${brand}"]`));
+    selectEditorTab(document.getElementById("tab-create"));
+    const tool = document.querySelector(`#panel-create [data-brand-panel="${brand}"]`);
+    tool.open = true;
+    document.querySelector(".more-actions").open = false;
+    tool.querySelector("summary").focus();
+    document.getElementById("session-status").textContent = "Original template inputs loaded for editing. Select Create to regenerate the canvas.";
+    scheduleRecovery();
+  });
+  document.getElementById("btn-import-project").addEventListener("click", () => document.getElementById("project-input").click());
+  document.getElementById("project-input").addEventListener("change", async event => {
+    const file = event.target.files?.[0];
+    if (file) await importProject(file);
+    event.target.value = "";
+  });
+  document.addEventListener("composer:forms-ready", event => { hasFormDraft = Boolean(event.detail.restored); });
+  document.addEventListener("composer:form-state", event => {
+    if (event.detail.restored) return;
+    hasFormDraft = true;
+    scheduleRecovery();
+  });
+  document.addEventListener("composer:form-storage-error", event => {
+    document.getElementById("session-status").textContent = event.detail.message;
+  });
+
+  document.getElementById("btn-recover-draft").addEventListener("click", async () => {
+    if (!recoveryCandidate) return;
+    const candidate = recoveryCandidate;
+    const forms = hasFormDraft ? window.ComposerTemplateState.captureForms() : candidate.forms;
+    recoveryCandidate = null;
+    document.getElementById("recovery-banner").hidden = true;
+    const ticket = beginDocumentOperation();
+    const restored = await restoreProject({ ...candidate, forms }, "Recovered draft", ticket);
+    if (!restored && currentDocumentOperation(ticket)) {
+      recoveryCandidate = candidate;
+      document.getElementById("recovery-banner").hidden = false;
+      document.getElementById("session-status").textContent = "The recovery draft could not be opened. Your current canvas was kept.";
+    }
+  });
+  document.getElementById("btn-discard-draft").addEventListener("click", async () => {
+    ++recoveryRevision;
+    clearTimeout(recoveryTimer);
+    recoveryCandidate = null;
+    document.getElementById("recovery-banner").hidden = true;
+    try {
+      await window.ComposerSession.clearRecovery();
+      document.getElementById("session-status").textContent = "Previous canvas recovery draft discarded.";
+    } catch { document.getElementById("session-status").textContent = "The recovery draft could not be removed from this browser."; }
+  });
+
+  document.addEventListener("DOMContentLoaded", async () => {
+    try {
+      const project = await window.ComposerSession.readRecovery();
+      recoveryReady = true;
+      if (sessionEdited) { scheduleRecovery(); return; }
+      if (project?.composition) {
+        recoveryCandidate = project;
+        document.getElementById("recovery-banner").hidden = false;
+        document.getElementById("session-status").textContent = "Previous canvas draft available for recovery.";
+      } else if (!hasFormDraft && project?.forms) window.ComposerTemplateState.restoreForms(project.forms);
+    } catch {
+      recoveryReady = true;
+      document.getElementById("session-status").textContent = "Recovery is unavailable. Export a project file to keep an editable backup.";
+    }
+  }, { once: true });
 
   window.addEventListener("resize", () => {
     fitCanvasElement();
@@ -1967,10 +2384,15 @@
   });
 
   textTools = window.ComposerText.init(state, { changed: draw, nextId, remove: deleteSelected });
+  layerTools = window.ComposerLayers.init(state, { changed: draw, nextId, selectTab: () => selectEditorTab(document.getElementById("tab-layers")) });
   textTools.loadFonts();
 
   // —— Boot ——
   state.showGrid = loadShowGrid();
+  try {
+    const storedSnap = localStorage.getItem(SNAP_STORAGE_KEY);
+    state.snapToGrid = storedSnap === null ? state.showGrid : storedSnap === "1";
+  } catch { state.snapToGrid = state.showGrid; }
   state.gridInvert = loadGridInvert();
   state.createdPaneOpen = loadCreatedPaneOpen();
   state.tintHex = loadStoredTintHex();
@@ -1980,6 +2402,11 @@
   syncCreatedPane();
   bootCreatedPics();
   wireTintControls();
+  history = window.ComposerSession.createHistory({ capture: captureDocument, apply: applyHistory, onChange: documentChanged, limit: 40, measure: historyRetainedBytes, maxBytes: 128 * 1024 * 1024 });
+  lastDocumentKey = captureDocument().key;
+  savedDocumentKey = lastDocumentKey;
+  historyReady = true;
+  updateDocumentStatus();
   Promise.all([preloadAssets(), bootCustomAssets()])
     .then(([failedAssets]) => {
       buildAssetPane();

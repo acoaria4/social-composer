@@ -6,7 +6,7 @@ Run `python3 -m http.server 8089` and open `http://localhost:8089/`. No build st
 
 ## Using the editor
 
-Choose a brand, then use **Create** for a blank canvas, background upload, or the AURA and Lumen templates. **Assets** contains brand artwork, custom uploads, and Expenses tint controls. Switching tabs or brands keeps the current session's drafts.
+Choose a brand, then use **Create** for a blank canvas, background upload, or the AURA and Lumen templates. **Assets** contains brand artwork, custom uploads, and Expenses tint controls. Template text and settings survive tab changes, brand changes, and reloads in the same browser.
 
 Tool sections start collapsed. Each brand's artwork lives under **Assets → Icons**; expand only the sections you need.
 
@@ -18,7 +18,15 @@ Select a box on the canvas or from the text-box list. Drag it to move, drag a co
 
 Run `node scripts/test-text-boxes.cjs` with the same Playwright setup to check collapsed sections, paste handling, shared styles, wrapping, overflow, editable save/restore, PNG export, and responsive controls. Outputs go to `exports/text-boxes/`.
 
-Canvas size and grid controls sit above the preview. **More actions** contains **Remove assets and text** and **Clear canvas**. On smaller screens, **View preview** jumps from the controls to the canvas.
+Canvas size and grid controls sit above the preview. **Grid** shows placement guides; **Snap** independently rounds dragged positions to the 72 px grid. Neither appears in exported artwork. **More actions** contains project backup controls, **Remove assets and text**, and **Clear canvas**. On smaller screens, **View preview** jumps from the controls to the canvas.
+
+**Layers** lists images and text from front to back, with separate select, visibility, and lock buttons. Select a layer to edit its position and size, duplicate it, delete it, or change its stacking order. Image proportions stay fixed; text height follows its content. With the canvas or layer controls focused, arrow keys move the selected layer by 1 px, or 10 px with Shift. Delete removes an unlocked selected layer. Hidden layers stay editable and saved but do not appear in the preview or PNG. Locked layers cannot be moved, resized, deleted, or reordered; unlock text layers before changing shared text styles, and tinted layers before changing their shared color. **Remove assets and text** keeps locked layers; **Clear canvas** clears the whole document.
+
+**Undo** and **Redo** cover canvas edits, including text, geometry, layering, background replacement, and clearing. A drag or one uninterrupted field edit is one action. Use Ctrl/Command + Z, Ctrl/Command + Shift + Z, or Ctrl + Y outside form fields; typing fields keep their browser editing shortcuts. History keeps up to 40 actions for the current page session; large images shorten older history against an estimated 128 MB image budget while preserving the most recent undo. Shared images count once. The header reports **Unsaved changes** or **Saved locally**; automatic recovery is separate from a saved design.
+
+The editor saves a recovery draft in IndexedDB shortly after edits. Reloading offers **Recover draft** or **Discard draft** before opening a previous canvas. The latest template form drafts are restored without API requests. Recovery is local to the browser and origin, and may be unavailable in private or restricted storage. A persistent message explains failures.
+
+Use **More actions → Export project** for a portable `.json` backup with embedded lossless PNG images, editable layers, text styles, template inputs, and view preferences. **Import project** validates and prepares the entire file before replacing the current canvas; failed imports leave the canvas intact. Files are limited to 50 MB and 64 million decoded image pixels. Project backups are independent of the twelve-design browser library and can be opened in another browser. Imported images stay with their document rather than replacing built-in brand artwork. Import restores the latest form drafts; **Load template inputs** explicitly fills the form from the original rendered post when you want to edit that version instead.
 
 The preview has independent **− / +**, percentage, **Fit**, and **Hand** controls. Pinch your trackpad or use **Ctrl + scroll** over the preview to zoom around the pointer; ordinary scrolling pans. Use **Hand** to drag the view, or hold **Space** while the preview is focused or hovered (typing in fields is unaffected). Two-finger touch gestures zoom and pan on mobile. Manual zoom ranges from 10–400%; 100% maps one artwork pixel to one CSS pixel. Fit shows the full composition and recalculates when the preview changes size. New and restored compositions start in Fit mode.
 
@@ -36,6 +44,8 @@ Run `node scripts/test-storage.cjs` with Playwright available through `NODE_PATH
 
 Run `node scripts/test-document-safety.cjs` with the same setup to check delayed document operations, transparent saves and PNG downloads, AURA format protection, stable stacking, and actual text overflow. It also starts its own local server unless `COMPOSER_URL` is set. Outputs go to `exports/document-safety/`.
 
+The additional self-serving suites are `scripts/test-editing-session.cjs` for undo/redo, save state and recovery; `scripts/test-layers.cjs` for layer editing, locks, visibility and independent snapping; and `scripts/test-projects.cjs` for portable backups and template source restoration. Their evidence goes to `exports/sprint3/`. Run browser suites one at a time to limit resource use.
+
 With Playwright available through `NODE_PATH` and local Chrome installed, run `node scripts/test-editor.cjs` to check keyboard navigation, drafts, asset editing, uploads, saving/restoring, export, validation, and layouts at 390, 860, and 1440 px. Set `COMPOSER_URL` when using a different local port. Screenshots are written to `exports/editor/`.
 
 ## Publishing
@@ -50,13 +60,13 @@ Select **Lumen**, enter an English fact or explanation, choose a subject and Can
 
 Subjects are **None · Graphite** (default), **Maths · Pink**, **Physics · Blue**, **Chemistry · Purple**, **Biology · Green**, and **Social · Yellow**. Named subjects appear in the former source-line position. None omits the entire subject line and uses a light logo on graphite; the five pastel palettes use the dark logo. Subject changes apply when you select **Create Lumen post**, and the selection survives brand switches during the session. Existing saved designs are unchanged.
 
-Formats are **Story / Reel · 9:16** (1080 × 1920, default), **Square · 1:1** (1080 × 1080), **Portrait · 4:5** (1080 × 1350), **Landscape · 1.91:1** (1200 × 630), and **Landscape · 16:9** (1600 × 900). Choose **Canvas size** in the shared toolbar and select **Create Lumen post** to apply. There is one size control for the editor. For Lumen templates, choosing a size stages a new layout and leaves the current image intact until Create succeeds. Native size applies to uploaded backgrounds rather than generated Lumen templates. Existing saved designs remain flattened images and retain their original dimensions; regenerate from the current form to use a new format.
+Formats are **Story / Reel · 9:16** (1080 × 1920, default), **Square · 1:1** (1080 × 1080), **Portrait · 4:5** (1080 × 1350), **Landscape · 1.91:1** (1200 × 630), and **Landscape · 16:9** (1600 × 900). Choose **Canvas size** in the shared toolbar and select **Create Lumen post** to apply. There is one size control for the editor. For Lumen templates, choosing a size stages a new layout and leaves the current image intact until Create succeeds. Native size applies to uploaded backgrounds rather than generated Lumen templates. Newly saved designs retain their source inputs, so restoring one fills the form for regeneration. Older saves retain their original flattened backgrounds.
 
 The Story / Reel layout follows AURA’s 180 px side margins, leaving a 720 px content column. Its reading section stays within y=400–1450, and the subject, divider, website, and spark sit above y=1636. Background artwork reaches the edges. These margins were checked with the same approximate Reels crop and overlays as AURA; actual platform overlays may vary.
 
 Lumen posts use a prominent app icon beside a separately scaled wordmark, with larger slogans, subject labels, website text, and footer sparks across all five formats. Body text is left aligned and vertically centered within each format’s reading area, using the actual text bounds and retaining paragraph gaps.
 
-**Text size** is adjustable from 36 to 84 px (default 72). Text is wrapped without silently shrinking or truncating. Overlong content shows a format-specific error and keeps the current canvas. Draft fields survive brand changes during the page session. Save and Download PNG use the normal Composer workflow. Text is not automatically fact-checked.
+**Text size** is adjustable from 36 to 84 px (default 72). Text is wrapped without silently shrinking or truncating. Overlong content shows a format-specific error and keeps the current canvas. Draft fields and settings survive reloads. Save and Download PNG use the normal Composer workflow. Text is not automatically fact-checked.
 
 Run `node scripts/test-lumen-formats.cjs` to verify all 30 format/subject combinations, layout bounds, pending/stale format changes, format-specific overflow, saving/restoring, and protection against cropping. It exports all templates plus phone-sized and simulated Reels previews for 9:16 under `exports/lumen-formats/`. Samples use the same illustrative lightning text.
 
@@ -76,7 +86,7 @@ The older files under `brands/` are no longer referenced by the composer.
 
 ## Daily horoscope posts
 
-Select **AURA** and choose **Manual entry** (default) or **Fetch from AURA API**. Manual entry provides twelve labelled reading fields; paste one reading per sign, then select **Create horoscope**. All fields are required. Manual mode makes no API requests, and drafts survive source, brand, date, language, and color changes during the current page session (not a reload). API results never overwrite these drafts.
+Select **AURA** and choose **Manual entry** (default) or **Fetch from AURA API**. Manual entry provides twelve labelled reading fields; paste one reading per sign, then select **Create horoscope**. All fields are required. Manual mode makes no API requests, and drafts survive source, brand, date, language, and color changes as well as reloads. Generating API results never overwrites manual drafts. Explicitly restoring a newly saved API reading opens its original summaries in Manual entry for editing, without refetching them.
 
 Choose **தமிழ் · Tamil** (default) or **English**, a reading date, and a background. API mode fetches the selected language directly from AURA. Both modes produce one 1080 × 1920 (9:16) canvas. Save and Download PNG use the normal composer controls.
 
@@ -88,7 +98,7 @@ API: `https://aura-glitchlabs.fly.dev/api/horoscopes/daily?date=YYYY-MM-DD&lang=
 
 The shared renderer (`js/horoscope-template.js`) uses the approved centered layout: equal 180 px side margins, two columns of 350 × 196 px cards, and six rows from y=400 to y=1636. Clean local celestial backgrounds match each day; gold emblems, ivory cards, Tamil Rasi names or English transliterations, and localized dates are rendered separately. Name accents are muted bronze, slate blue, clay, forest sage, ochre, dusty rose, or plum, with at least 4.5:1 contrast against the cards. These margins were checked against a simulated Reel view based on the supplied screenshot; Instagram displays and overlays can vary.
 
-**Reading text size** (18–36 px, default 30) and **Reading text weight** (Regular 400, Semibold 600, Bold 700; default Semibold) affect all twelve reading paragraphs together. Select **Create horoscope** to apply. Sign names, title, and date retain their own styling. Controls and manual drafts survive source, date, language, brand, and color changes during the current page session. Existing saved flattened images are unchanged.
+**Reading text size** (18–36 px, default 30) and **Reading text weight** (Regular 400, Semibold 600, Bold 700; default Semibold) affect all twelve reading paragraphs together. Select **Create horoscope** to apply. Sign names, title, and date retain their own styling. Controls and manual drafts survive reloads. Newly saved covers and reading posts retain their source inputs; older saved flattened images are unchanged.
 
 Text uses self-hosted Noto Sans Tamil or DM Sans; fonts are loaded at the requested weight before measurement. Tamil wrapping respects grapheme boundaries. There is no per-sign shrinking or automatic rewriting. A reading that exceeds its card produces an error naming the Rasi and suggesting a smaller shared size or shorter reading; the existing canvas is preserved. Blank horoscope templates need no API connection.
 
