@@ -109,6 +109,7 @@ async function startServer() {
     assert.equal(await typing.locator('#btn-redo').isDisabled(), true, 'Editing after undo discards the old redo branch');
     await typing.locator('#btn-save').click();
     assert.equal(await typing.locator('#document-status').innerText(), 'Saved locally');
+    await typing.locator('#btn-close-saved').click();
     await typing.locator('#text-content').fill('Changed since save');
     await typing.locator('#btn-undo').click();
     assert.equal(await typing.locator('#document-status').innerText(), 'Saved locally', 'Undo back to the saved document restores its save status');
@@ -116,7 +117,8 @@ async function startServer() {
     assert.equal(await typing.locator('#document-status').innerText(), 'Unsaved changes');
     await typing.locator('#btn-undo').click();
     assert.equal(await typing.locator('#document-status').innerText(), 'Saved locally');
-    await typing.locator('#assets-created .asset-chip-remove').click({ force: true });
+    await typing.locator('#btn-created-toggle').click();
+    await typing.locator('#assets-created .asset-chip-remove').click();
     assert.equal(await typing.locator('#document-status').innerText(), 'Unsaved changes', 'Deleting the associated saved design clears the saved status');
     evidence.typing = { grouped: true, textareaUpdated: true, focusSeparatesActions: true, keyboardUndoRedo: true, redoBranchTruncated: true, savedStatusFollowsDocument: true, removedSaveClearsStatus: true };
     await typing.context().close();

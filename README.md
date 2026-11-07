@@ -6,19 +6,21 @@ Run `python3 -m http.server 8089` and open `http://localhost:8089/`. No build st
 
 ## Using the editor
 
-Choose a brand, then use **Create** for a blank canvas, background upload, or the AURA and Lumen templates. **Assets** contains brand artwork, custom uploads, and Expenses tint controls. Template text and settings survive tab changes, brand changes, and reloads in the same browser.
+The matte black workspace has three areas: **Your library** on the left, the canvas in the center, and an **Inspector** on the right. Choose a brand using its name and mini icon, then open **Templates**. AURA shows daily covers and readings; Lumen shows fact posts. Each card opens its settings without generating artwork or fetching readings. Template cards show actual local renderer samples. Brands without templates offer a blank canvas and background upload instead.
+
+Choose a brand and open **Assets** for brand artwork, custom uploads, and Expenses tint controls. Text and layer tools live in the inspector, with navigation independent of the library. Selecting text on the canvas opens its text controls; selecting an image opens layer geometry. The header identifies the current canvas or generated post and shows its save state. Template text and settings survive tab changes, brand changes, and reloads in the same browser.
 
 Tool sections start collapsed. Each brand's artwork lives under **Assets → Icons**; expand only the sections you need.
 
 ### Text over a background
 
-After uploading a background or creating a canvas, open **Text → Add text box**. Type or paste into **Box text**: its first line is the header and the remaining lines are the body. **Headers · first line** and **Body text** control font, size, color, and weight across all boxes independently. The first formatted paste with a supported inline font supplies the shared fonts; plain-text or unsupported-font pastes keep the selected fonts. The dropdowns list supported local and standard fonts. Pasted markup is never added to the page.
+After uploading a background or creating a canvas, open **Inspector → Text → Add text box**. Type or paste into **Box text**: its first line is the header and the remaining lines are the body. **Headers · first line** and **Body text** control font, size, color, and weight across all boxes independently. The first formatted paste with a supported inline font supplies the shared fonts; plain-text or unsupported-font pastes keep the selected fonts. The dropdowns list supported local and standard fonts. Pasted markup is never added to the page.
 
 Select a box on the canvas or from the text-box list. Drag it to move, drag a corner to change its width, or expand **Position and width** for numeric controls. Text wraps without shrinking, and box height grows with its content. PNG download is disabled when a box or its visible text extends beyond the canvas, or when the box is too narrow for an indivisible character. Adjust its position, width, or shared text size to fit. Saved designs retain editable text and shared styles, including after reloading. Existing saved image-only designs remain compatible.
 
 Run `node scripts/test-text-boxes.cjs` with the same Playwright setup to check collapsed sections, paste handling, shared styles, wrapping, overflow, editable save/restore, PNG export, and responsive controls. Outputs go to `exports/text-boxes/`.
 
-Canvas size and grid controls sit above the preview. **Grid** shows placement guides; **Snap** independently rounds dragged positions to the 72 px grid. Neither appears in exported artwork. **More actions** contains project backup controls, **Remove assets and text**, and **Clear canvas**. On smaller screens, **View preview** jumps from the controls to the canvas.
+Canvas size and grid controls sit above the preview. **Grid** shows placement guides; **Snap** independently rounds dragged positions to the 72 px grid. Neither appears in exported artwork. **More actions** contains project backup controls, **Remove assets and text**, and **Clear canvas**. On phones and smaller tablets, the fixed **Edit / Preview** switch shows either the authoring tools or the artwork. Canvas size and project actions stay available in Edit; save and PNG export remain in the app bar. **View preview** also switches to Preview and focuses the canvas.
 
 **Layers** lists images and text from front to back, with separate select, visibility, and lock buttons. Select a layer to edit its position and size, duplicate it, delete it, or change its stacking order. Image proportions stay fixed; text height follows its content. With the canvas or layer controls focused, arrow keys move the selected layer by 1 px, or 10 px with Shift. Delete removes an unlocked selected layer. Hidden layers stay editable and saved but do not appear in the preview or PNG. Locked layers cannot be moved, resized, deleted, or reordered; unlock text layers before changing shared text styles, and tinted layers before changing their shared color. **Remove assets and text** keeps locked layers; **Clear canvas** clears the whole document.
 
@@ -45,6 +47,8 @@ Run `node scripts/test-storage.cjs` with Playwright available through `NODE_PATH
 Run `node scripts/test-document-safety.cjs` with the same setup to check delayed document operations, transparent saves and PNG downloads, AURA format protection, stable stacking, and actual text overflow. It also starts its own local server unless `COMPOSER_URL` is set. Outputs go to `exports/document-safety/`.
 
 The additional self-serving suites are `scripts/test-editing-session.cjs` for undo/redo, save state and recovery; `scripts/test-layers.cjs` for layer editing, locks, visibility and independent snapping; and `scripts/test-projects.cjs` for portable backups and template source restoration. Their evidence goes to `exports/sprint3/`. Run browser suites one at a time to limit resource use.
+
+Run `node scripts/test-workspace.cjs` for three-pane layout, independent navigation, template cards, contextual inspection, accessible library actions, and mobile Edit/Preview behavior. It starts its own server unless `COMPOSER_URL` is set and writes evidence to `exports/sprint4/workspace/`. The viewport and workspace suites use software graphics on Windows to reduce GPU use during checks. Template thumbnails can be regenerated with `node scripts/build-template-previews.cjs` while the app is served locally.
 
 With Playwright available through `NODE_PATH` and local Chrome installed, run `node scripts/test-editor.cjs` to check keyboard navigation, drafts, asset editing, uploads, saving/restoring, export, validation, and layouts at 390, 860, and 1440 px. Set `COMPOSER_URL` when using a different local port. Screenshots are written to `exports/editor/`.
 
@@ -91,6 +95,8 @@ Select **AURA** and choose **Manual entry** (default) or **Fetch from AURA API**
 Choose **தமிழ் · Tamil** (default) or **English**, a reading date, and a background. API mode fetches the selected language directly from AURA. Both modes produce one 1080 × 1920 (9:16) canvas. Save and Download PNG use the normal composer controls.
 
 Generated AURA readings and covers keep their supported Story / Reel size; the canvas-size control is locked while editing them. Restoring an older AURA save also restores its full 9:16 background rather than a cropped preset. Selecting Lumen lets you stage another format for a new Lumen post without resizing the current AURA artwork. Blank canvases and uploaded backgrounds retain the normal size controls.
+
+Selecting AURA with an empty canvas defaults Canvas size to **Story / Reel · 9:16 · 1080×1920**, including new blank canvases. Switching to AURA while artwork is already open preserves that artwork and its displayed size; creating an AURA cover or reading then applies 9:16. Lumen keeps its own staged format.
 
 All eight backgrounds are always available in either language: No tint (ivory), Sunday warm gold, Monday moon pearl, Tuesday terracotta, Wednesday sage, Thursday saffron, Friday rose, and Saturday lavender. Automatic follows the selected date in Asia/Kolkata. These are editorial tints, independent of the readings.
 

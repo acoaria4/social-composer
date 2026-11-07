@@ -66,7 +66,7 @@ const fs = require('node:fs');
     await page.locator('#btn-close-saved').click();
     await page.reload();
     await page.locator('#btn-created-toggle').click();
-    await page.locator('#assets-created > .asset-chip').first().click();
+    await page.locator('#assets-created .asset-chip').first().click();
     await page.waitForFunction(()=>!document.querySelector('#btn-download').disabled);
     await page.locator('#btn-close-saved').click();
     await page.locator('#tab-text').click();

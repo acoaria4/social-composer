@@ -16,9 +16,13 @@ const path = require('node:path');
     assert.equal(await visible('#panel-assets'), false);
     await page.locator('#tab-create').focus();
     await page.keyboard.press('ArrowRight');
-    await page.keyboard.press('ArrowRight');
     assert.equal(await visible('#panel-assets'), true);
     assert.equal(await page.locator('#tab-assets').evaluate(e => e === document.activeElement), true);
+    await page.locator('#tab-text').focus();
+    await page.keyboard.press('ArrowRight');
+    assert.equal(await visible('#panel-layers'), true);
+    assert.equal(await visible('#panel-assets'), true, 'Inspector navigation leaves the left pane selected');
+    await page.locator('#tab-assets').focus();
     await page.keyboard.press('Home');
     assert.equal(await visible('#panel-create'), true);
 
@@ -73,7 +77,7 @@ const path = require('node:path');
     assert.equal(await visible('#empty-state'), true);
     await page.locator('.more-actions > summary').click();
     await page.locator('#btn-created-toggle').click();
-    await page.locator('#assets-created > .asset-chip').click();
+    await page.locator('#assets-created .saved-asset-row > .asset-chip').click();
     await page.waitForFunction(() => !document.querySelector('#btn-download').disabled);
     assert.match(await page.locator('#meta').innerText(), /3 marks/);
     await page.locator('#btn-close-saved').click();
@@ -102,6 +106,7 @@ const path = require('node:path');
     fs.mkdirSync(out, { recursive: true });
     for (const width of [390, 860, 1440]) {
       await page.setViewportSize({ width, height: 1000 });
+      if (width < 1000) await page.locator('#btn-mode-edit').click();
       for (const brand of ['expenses', 'aura', 'lumen', 'glitch']) {
         await page.locator(`[data-brand="${brand}"]`).click();
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${brand} at ${width}px`);
@@ -120,7 +125,7 @@ const path = require('node:path');
     }
     await page.reload();
     await page.locator('#btn-created-toggle').click();
-    await page.locator('#assets-created > .asset-chip').click();
+    await page.locator('#assets-created .saved-asset-row > .asset-chip').click();
     await page.waitForFunction(() => !document.querySelector('#btn-download').disabled);
     assert.match(await page.locator('#meta').innerText(), /3 marks/);
     assert.deepEqual(errors, []);

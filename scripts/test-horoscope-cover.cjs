@@ -193,8 +193,8 @@ async function startServer() {
     assert.equal(saved.composition.auraPostType, 'cover');
     assert.equal(saved.composition.postDate, '2026-11-07');
     await page.reload();
-    await page.waitForFunction(() => document.querySelectorAll('#assets-created > .asset-chip').length > 0);
-    await page.locator('#assets-created > .asset-chip').first().click();
+    await page.waitForFunction(() => document.querySelectorAll('#assets-created .asset-chip').length > 0);
+    await page.locator('#assets-created .asset-chip').first().click();
     await page.waitForFunction(() => !document.querySelector('#btn-download').disabled);
     assert.equal(await downloadName(), 'aura-daily-cover-2026-11-07-1080x1920.png');
     await page.locator('#btn-close-saved').click();
@@ -206,7 +206,7 @@ async function startServer() {
     }, storageKey);
     await page.reload();
     await page.locator('#btn-created-toggle').click();
-    await page.locator('#assets-created > .asset-chip').first().click();
+    await page.locator('#assets-created .asset-chip').first().click();
     await page.waitForFunction(() => !document.querySelector('#btn-download').disabled);
     assert.equal(await downloadName(), 'aura-daily-horoscope-2026-11-07-1080x1920.png');
     await page.locator('#btn-close-saved').click();

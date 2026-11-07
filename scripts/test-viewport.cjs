@@ -2,7 +2,7 @@ const {chromium}=require('playwright');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');const path=require('node:path');
 (async()=>{
- const browser=await chromium.launch({channel:'chrome',headless:true});
+ const browser=await chromium.launch({channel:'chrome',headless:true,args:process.platform==='win32'?['--disable-gpu']:[]});
  try {
  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(process.env.COMPOSER_URL||'http://127.0.0.1:8089/');
@@ -66,7 +66,7 @@ const fs=require('node:fs');const path=require('node:path');
  assert.ok(Math.abs((priorStage.x+priorStage.width/2-prior.x)/prior.width-(afterStage.x+afterStage.width/2-after.x)/after.width)<.005);
  // Browser zoom is not intercepted outside the preview.
  assert.equal(await page.locator('.toolbar').evaluate(e=>{const event=new WheelEvent('wheel',{ctrlKey:true,deltaY:-20,bubbles:true,cancelable:true});e.dispatchEvent(event);return event.defaultPrevented;}),false);
- await page.locator('#btn-save').click();await page.locator('#assets-created > .asset-chip').first().click();await page.waitForFunction(()=>document.querySelector('#zoom-fit').getAttribute('aria-pressed')==='true');
+ await page.locator('#btn-save').click();await page.locator('#assets-created .asset-chip').first().click();await page.waitForFunction(()=>document.querySelector('#zoom-fit').getAttribute('aria-pressed')==='true');
  const cdp=await page.context().newCDPSession(page);
  await page.setViewportSize({width:390,height:844});await page.locator('#btn-close-saved').click();await page.locator('#btn-view-preview').click();
  await page.locator('#stage-drop').scrollIntoViewIfNeeded();

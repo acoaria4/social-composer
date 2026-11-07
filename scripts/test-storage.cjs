@@ -7,7 +7,7 @@ const { chromium } = require('playwright');
 const root = path.resolve(__dirname, '..');
 const output = path.join(root, 'exports/storage');
 const storageKey = 'glitch-social-composer-created-pics';
-const cardsSelector = '#assets-created > .asset-chip';
+const cardsSelector = '#assets-created .asset-chip';
 
 async function startServer() {
   const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.png': 'image/png', '.svg': 'image/svg+xml', '.ttf': 'font/ttf' };
@@ -84,13 +84,13 @@ async function startServer() {
     const failedSaveMessage = await errorStatus(failure);
     assert.equal(await stored(failure), original);
     assert.equal(await failure.locator(cardsSelector).count(), 1);
-    await failure.locator('#tab-text').click();
+    await failure.locator('#tab-assets').click();
     await failure.setViewportSize({ width: 1366, height: 900 });
     assert.equal(await failure.locator('#created-status').innerText(), failedSaveMessage, 'The library error survives redraws and navigation');
     assert.equal(await failure.locator('#created-status').isVisible(), true);
     await failure.screenshot({ path: path.join(output, 'save-failure.png') });
     await failure.reload();
-    await failure.waitForFunction(() => document.querySelectorAll('#assets-created > .asset-chip').length === 1);
+    await failure.waitForFunction(() => document.querySelectorAll('#assets-created .asset-chip').length === 1);
     assert.equal(await stored(failure), original);
     await failure.locator(cardsSelector).first().click();
     await failure.waitForFunction(() => !document.querySelector('#btn-download').disabled);
@@ -114,17 +114,17 @@ async function startServer() {
 
     // Removal is also transactional: a failed write keeps both the card and save.
     await failWrites(full);
-    await full.locator(cardsSelector).first().locator('.asset-chip-remove').click();
+    await full.locator('#assets-created .saved-asset-row').first().locator('.asset-chip-remove').click();
     const removeMessage = await errorStatus(full);
     assert.equal(await stored(full), beforeThirteenth);
     assert.equal(await full.locator(cardsSelector).count(), 12);
     await full.evaluate(() => window.restoreCreatedWrites());
-    await full.locator(cardsSelector).first().locator('.asset-chip-remove').click();
+    await full.locator('#assets-created .saved-asset-row').first().locator('.asset-chip-remove').click();
     await full.waitForFunction(key => JSON.parse(localStorage.getItem(key)).length === 11, storageKey);
     assert.equal(await full.locator(cardsSelector).count(), 11);
     assert.match(await full.locator('#created-status').innerText(), /removed|deleted/i);
     await full.reload();
-    await full.waitForFunction(() => document.querySelectorAll('#assets-created > .asset-chip').length === 11);
+    await full.waitForFunction(() => document.querySelectorAll('#assets-created .asset-chip').length === 11);
     assert.equal((await entries(full))[0].id, firstId);
     evidence.capacity = { countMessage, firstIdRetained: true, failedRemoveMessage: removeMessage, countAfterSuccessfulRemovalAndReload: 11 };
     await full.close();
@@ -154,7 +154,7 @@ async function startServer() {
     assert.equal(await budget.locator(cardsSelector).count(), 1);
     assert.equal((await entries(budget)).length, 1);
     await budget.reload();
-    await budget.waitForFunction(() => document.querySelectorAll('#assets-created > .asset-chip').length === 1);
+    await budget.waitForFunction(() => document.querySelectorAll('#assets-created .asset-chip').length === 1);
     assert.equal(await stored(budget), firstDetailed);
     evidence.budget = { message: budgetMessage, originalRetained: true, countAfterReload: 1 };
     await budget.close();

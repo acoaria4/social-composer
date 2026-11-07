@@ -116,7 +116,7 @@ const fs=require('node:fs');const path=require('node:path');
   await format.selectOption('1200x630');await page.evaluate(async()=>{releaseFormatRender();LumenFactTemplate.render=originalFormatRender;await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));});
   assert.equal(await canvas(),before);
   await create();await page.locator('#btn-save').click();
-  await page.reload();if(!await page.locator('#pane-created').isVisible())await page.locator('#btn-created-toggle').click();await page.locator('#assets-created > .asset-chip').first().click();
+  await page.reload();if(!await page.locator('#pane-created').isVisible())await page.locator('#btn-created-toggle').click();await page.locator('#assets-created .asset-chip').first().click();
   await page.waitForFunction(()=>!document.querySelector('#btn-download').disabled);
   assert.equal(await page.locator('#preset-select').inputValue(),'1200x630');
   assert.deepEqual(await page.locator('#stage-canvas').evaluate(c=>[c.width,c.height]),[1200,630]);

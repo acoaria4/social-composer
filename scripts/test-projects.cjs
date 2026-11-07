@@ -114,6 +114,8 @@ async function startServer() {
     for (const bad of invalid) {
       await imported(target, bad); assert.equal(await pixels(target), stable, 'Invalid import keeps the current canvas');
       assert.match(await target.locator('#session-status').innerText(), /Project not opened/);
+      await target.waitForTimeout(450);
+      assert.match(await target.locator('#session-status').innerText(), /Project not opened/, 'Background recovery must not replace the import error');
     }
     evidence.portableProject = { embeddedImages: 3, exactPixels: true, editableLayers: true, flagsAndLabels: true, immutableTemplateSource: true, latestDraftRestored: true, explicitSourceRestore: true, rejectedFiles: invalid.length };
     await target.context().close();
@@ -146,12 +148,13 @@ async function startServer() {
     assert.equal(await api.locator('#horoscope-readings textarea').first().inputValue(), 'Unrelated manual draft', 'API generation preserves the manual draft');
     await api.locator('#btn-save').click();
     await api.waitForFunction(key => JSON.parse(localStorage.getItem(key) || '[]').length === 1, libraryKey);
+    await api.locator('#btn-close-saved').click();
     await api.locator('#horoscope-source').selectOption('manual');
     const beforeReloadCalls = apiCalls;
     await api.reload(); await api.waitForFunction(() => !!document.querySelector('[data-asset-id="expenses-icon"]'));
     assert.equal(apiCalls, beforeReloadCalls, 'Reloading stored form drafts makes no API call');
     if (!await api.locator('#pane-created').isVisible()) await api.locator('#btn-created-toggle').click();
-    await api.locator('#assets-created > .asset-chip').first().click(); await ready(api);
+    await api.locator('#assets-created .asset-chip').first().click(); await ready(api);
     assert.equal(await api.locator('#horoscope-source').inputValue(), 'manual');
     assert.deepEqual(await api.locator('#horoscope-readings textarea').evaluateAll(fields => fields.map(field => field.value)), summaries, 'Saved API summaries restore as editable manual readings');
     assert.equal(apiCalls, beforeReloadCalls, 'Saved-source restoration never refetches readings');

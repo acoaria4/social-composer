@@ -7,7 +7,7 @@ const { chromium } = require('playwright');
 const root = path.resolve(__dirname, '..');
 const output = path.join(root, 'exports/document-safety');
 const storageKey = 'glitch-social-composer-created-pics';
-const cards = '#assets-created > .asset-chip';
+const cards = '#assets-created .asset-chip';
 
 async function startServer() {
   const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.png': 'image/png', '.svg': 'image/svg+xml', '.ttf': 'font/ttf' };
@@ -181,7 +181,7 @@ const svgFile = (color, size = 120) => ({
       await page.waitForFunction(() => document.querySelector('#stage-canvas').width === 32);
       const before = { clear: await pixel(page, 0, 0), partial: await pixel(page, 12, 12) };
       const entry = await save(page); assert.doesNotMatch(entry.composition.bgDataUrl, /^data:image\/jpeg/);
-      await page.reload(); await page.waitForFunction(() => document.querySelectorAll('#assets-created > .asset-chip').length === 1);
+      await page.reload(); await page.waitForFunction(() => document.querySelectorAll('#assets-created .asset-chip').length === 1);
       await restoreFirst(page); await page.waitForFunction(() => document.querySelector('#stage-canvas').width === 32 && !document.querySelector('#btn-download').disabled);
       assert.deepEqual(await pixel(page, 0, 0), before.clear); assert.deepEqual(await pixel(page, 12, 12), before.partial);
       await page.locator('#btn-close-saved').click();
@@ -223,7 +223,7 @@ const svgFile = (color, size = 120) => ({
       assert.ok(before.transparent > 0 && before.partial > 0, 'The large fixture exercises fully transparent and antialiased pixels');
       const entry = await save(page);
       assert.match(entry.composition.bgDataUrl, /^data:image\/webp/, 'The large transparent background uses the compact alpha-preserving fallback');
-      await page.reload(); await page.waitForFunction(() => document.querySelectorAll('#assets-created > .asset-chip').length === 1);
+      await page.reload(); await page.waitForFunction(() => document.querySelectorAll('#assets-created .asset-chip').length === 1);
       await restoreFirst(page);
       await page.waitForFunction(({ width, height }) => {
         const canvas = document.querySelector('#stage-canvas');

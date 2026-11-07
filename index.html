@@ -6,9 +6,9 @@
     <title>Social Composer — gLitCh Labs</title>
     <link rel="icon" href="brands/current/glitchlabs-icon.png" type="image/png" />
     <link rel="stylesheet" href="css/fonts.css" />
-    <link rel="stylesheet" href="css/composer.css?v=recoverable-editing-1" />
+    <link rel="stylesheet" href="css/composer.css?v=brand-library-1" />
   </head>
-  <body>
+  <body data-workspace-view="edit">
     <a class="skip-link" href="#stage-drop">Skip to canvas</a>
     <div class="app">
       <header class="toolbar">
@@ -26,6 +26,7 @@
         </a>
 
 
+        <div class="document-identity"><output id="document-title">Untitled canvas</output><span id="document-details">Choose a template</span></div>
         <div class="history-actions" role="group" aria-label="Document history">
           <button id="btn-undo" class="btn" type="button" disabled title="Undo · Ctrl or Command + Z">Undo</button>
           <button id="btn-redo" class="btn" type="button" disabled title="Redo · Ctrl or Command + Shift + Z">Redo</button>
@@ -49,22 +50,27 @@
       <p id="session-status" class="session-status" role="status" aria-live="polite"></p>
       <div class="workspace">
         <aside class="pane editor-pane" aria-label="Design controls">
-          <div class="editor-navigation"><p class="section-label">Brand</p><nav class="brand-picker" aria-label="Choose a brand">
-            <button type="button" class="btn" data-brand="expenses" aria-pressed="true">Expenses</button>
-            <button type="button" class="btn" data-brand="aura" aria-pressed="false">AURA</button>
-            <button type="button" class="btn" data-brand="lumen" aria-pressed="false">Lumen</button>
-            <button type="button" class="btn" data-brand="glitch" aria-pressed="false">gLitCh Labs</button>
+          <div class="editor-navigation" id="library-navigation"><h2 class="pane-title">Your library</h2><nav class="brand-picker" aria-label="Choose a brand">
+            <button type="button" class="btn" data-brand="expenses" aria-pressed="true"><img src="brands/current/expenses-icon.png" width="20" height="20" alt="" draggable="false"><span>Expenses</span></button>
+            <button type="button" class="btn" data-brand="aura" aria-pressed="false"><img src="brands/current/aura-icon.png" width="20" height="20" alt="" draggable="false"><span>AURA</span></button>
+            <button type="button" class="btn" data-brand="lumen" aria-pressed="false"><img src="brands/current/lumen-icon.png" width="20" height="20" alt="" draggable="false"><span>Lumen</span></button>
+            <button type="button" class="btn" data-brand="glitch" aria-pressed="false"><img src="brands/current/glitchlabs-icon.png" width="20" height="20" alt="" draggable="false"><span>gLitCh Labs</span></button>
           </nav>
 
-          <div class="editor-tabs" role="tablist" aria-label="Design tools">
-            <button id="tab-create" type="button" role="tab" aria-selected="true" aria-controls="panel-create" tabindex="0">Create</button>
-            <button id="tab-text" type="button" role="tab" aria-selected="false" aria-controls="panel-text" tabindex="-1">Text</button>
+          <div class="editor-tabs" role="tablist" aria-label="Library tools">
+            <button id="tab-create" type="button" role="tab" aria-selected="true" aria-controls="panel-create" tabindex="0">Templates</button>
             <button id="tab-assets" type="button" role="tab" aria-selected="false" aria-controls="panel-assets" tabindex="-1">Assets</button>
-            <button id="tab-layers" type="button" role="tab" aria-selected="false" aria-controls="panel-layers" tabindex="-1">Layers</button>
           </div>
           <button id="btn-view-preview" type="button" class="btn preview-jump">View preview ↓</button>
           </div>
           <section id="panel-create" role="tabpanel" aria-labelledby="tab-create" tabindex="0">
+            <p class="pane-hint">Choose a starting point. Your content and settings stay editable.</p>
+            <div id="template-gallery" class="template-gallery" aria-label="Post templates">
+              <button class="template-card" type="button" data-template="aura-cover" data-template-brand="aura" hidden aria-pressed="false"><img class="template-preview" src="assets/templates/aura-cover.webp" width="108" height="192" alt="" decoding="async"><span><span class="template-name">Daily cover</span><span class="template-description">AURA · Date and day color</span></span></button>
+              <button class="template-card" type="button" data-template="aura-reading" data-template-brand="aura" hidden aria-pressed="false"><img class="template-preview" src="assets/templates/aura-reading.webp" width="108" height="192" alt="" decoding="async"><span><span class="template-name">Daily readings</span><span class="template-description">AURA · All twelve signs</span></span></button>
+              <button class="template-card" type="button" data-template="lumen-fact" data-template-brand="lumen" hidden aria-pressed="false"><img class="template-preview" src="assets/templates/lumen-fact.webp" width="108" height="192" alt="" decoding="async"><span><span class="template-name">Fact post</span><span class="template-description">Lumen · Five formats</span></span></button>
+            </div>
+            <p id="template-choice-label" class="pane-hint">Layout previews. Choose a template to open its settings.</p>
             <details class="background-section tool-section"><summary id="background-heading">Start a canvas</summary><p class="pane-hint">Start fresh or use your own image. Add brand artwork in Assets.</p><div class="setup-actions">
           <button id="btn-blank" type="button" class="btn btn-ghost">Blank canvas</button>
           <button type="button" class="btn btn-ghost" data-upload-background>Upload background</button>
@@ -113,26 +119,7 @@
             </details>
 
           </section>
-<section id="panel-text" role="tabpanel" aria-labelledby="tab-text" tabindex="0" hidden>
-<p class="pane-hint">Add text over your background. The first line is the header; the remaining lines are body text.</p>
-<button id="text-add" class="btn btn-primary" type="button" disabled>Add text box</button>
-<p id="text-status" class="pane-hint" role="status" aria-live="polite">Upload a background or start a blank canvas first.</p>
-<details class="tool-section text-style"><summary>Headers · first line</summary>
-    <p class="pane-hint">Shared across every text box. Sizes are in export pixels.</p>
-    <label class="horoscope-field">Font<select id="text-header-font"><option>DM Sans</option><option>Manrope</option><option>Outfit</option><option>Noto Sans Tamil</option><option>Cormorant Garamond</option><option>Arial</option><option>Georgia</option><option>Times New Roman</option><option>Verdana</option><option>Courier New</option></select></label>
-    <div class="text-control-grid"><label class="horoscope-field">Size · px<input id="text-header-size" type="number" min="8" max="240" value="48" required></label>
-    <label class="horoscope-field">Weight<select id="text-header-weight"><option value="400">Regular</option><option value="600">Semibold</option><option value="700" selected>Bold</option></select></label></div>
-    <label class="horoscope-field">Color<input id="text-header-color" type="color" value="#ffffff"></label></details><details class="tool-section text-style"><summary>Body text</summary>
-    <p class="pane-hint">Shared across every text box. Sizes are in export pixels.</p>
-    <label class="horoscope-field">Font<select id="text-body-font"><option>DM Sans</option><option>Manrope</option><option>Outfit</option><option>Noto Sans Tamil</option><option>Cormorant Garamond</option><option>Arial</option><option>Georgia</option><option>Times New Roman</option><option>Verdana</option><option>Courier New</option></select></label>
-    <div class="text-control-grid"><label class="horoscope-field">Size · px<input id="text-body-size" type="number" min="8" max="240" value="32" required></label>
-    <label class="horoscope-field">Weight<select id="text-body-weight"><option value="400" selected>Regular</option><option value="600">Semibold</option><option value="700">Bold</option></select></label></div>
-    <label class="horoscope-field">Color<input id="text-body-color" type="color" value="#ffffff"></label></details><label class="horoscope-field">Text boxes<select id="text-selection" aria-label="Select text box"><option value="">No text boxes yet</option></select></label>
-<div id="text-editor" hidden><label class="horoscope-field">Box text<textarea id="text-content" rows="6" placeholder="Header on the first line&#10;Paste or type body text below" aria-describedby="text-paste-hint"></textarea></label>
-<p id="text-paste-hint" class="pane-hint">The first formatted paste supplies shared fonts when available. Plain text keeps your selected fonts.</p>
-<details id="text-position" class="tool-section"><summary>Position and width</summary><div class="text-control-grid"><label class="horoscope-field">Left · px<input id="text-x" type="number" step="1"></label><label class="horoscope-field">Top · px<input id="text-y" type="number" step="1"></label><label class="horoscope-field">Width · px<input id="text-width" type="number" min="48" step="1"></label></div></details>
-<button id="text-delete" class="btn" type="button">Delete text box</button></div>
-<p class="pane-hint">Drag a box to move it. Drag a corner to change its width; text wraps and the height grows automatically.</p></section>
+
           <section id="panel-assets" role="tabpanel" aria-labelledby="tab-assets" tabindex="0" hidden>
             <p class="pane-hint">Click an asset to place it in the center, or drag it onto the canvas.</p>
 <details class="brand-group" data-brand-panel="expenses">
@@ -205,9 +192,10 @@
           </p>
 
           </section>
-          <section id="panel-layers" role="tabpanel" aria-labelledby="tab-layers" tabindex="0" hidden></section>
+
         </aside>
-        <main class="stage-wrap" aria-label="Preview">
+        <main class="stage-wrap" aria-label="Canvas workspace">
+          <details id="canvas-settings" class="canvas-settings" open><summary class="btn">Canvas controls</summary>
           <div class="canvas-toolbar">          <label class="field">
             <span class="field-label">Canvas size</span>
             <select id="preset-select" aria-label="Export size" aria-describedby="lumen-format-guidance">
@@ -254,6 +242,7 @@
 </div></details>
           </div>
           <p id="lumen-format-guidance" class="pane-hint" hidden>Choose Canvas size above, then select Create Lumen post to apply the layout.</p>
+          </details>
           <div class="viewport-toolbar" role="group" aria-label="Preview zoom and pan">
             <button id="zoom-out" class="btn" type="button" aria-label="Zoom out" disabled>−</button>
             <output id="zoom-level" aria-live="polite" aria-label="Preview zoom">—</output>
@@ -272,7 +261,7 @@
             <canvas id="stage-canvas"></canvas>
             <div id="empty-state" class="empty-state">
               <p>Your next post starts here</p>
-              <p class="empty-sub">Choose a brand template in Create, or start with a background.</p>
+              <p class="empty-sub">Choose a template from your library, or start with a background.</p>
               <div class="empty-actions"><button type="button" class="btn btn-primary" id="btn-empty-blank">Blank canvas</button><button type="button" class="btn" data-upload-background>Upload background</button></div>
               <p class="empty-sub">You can also drop an image onto this canvas.</p>
             </div>
@@ -286,9 +275,38 @@
           <p id="meta" class="meta" role="status" aria-live="polite"></p>
 
         </main>
-        <aside id="pane-created" class="pane pane-created is-collapsed" aria-label="Saved designs" hidden>
+        <aside class="pane inspector-pane" aria-label="Inspector">
+          <div class="inspector-heading pane-heading"><h2 class="pane-title">Inspector</h2><button id="inspector-add-text" class="btn" type="button" disabled>Add text</button></div>
+          <p id="inspector-context" class="pane-hint" role="status">Start a canvas to edit layers.</p>
+          <div class="editor-tabs" role="tablist" aria-label="Inspector tools">
+            <button id="tab-layers" type="button" role="tab" aria-selected="true" aria-controls="panel-layers" tabindex="0">Layers</button>
+            <button id="tab-text" type="button" role="tab" aria-selected="false" aria-controls="panel-text" tabindex="-1">Text</button>
+          </div>
+          <section id="panel-layers" role="tabpanel" aria-labelledby="tab-layers" tabindex="0"></section>
+          <section id="panel-text" role="tabpanel" aria-labelledby="tab-text" tabindex="0" hidden>
+<p class="pane-hint">Add text over your background. The first line is the header; the remaining lines are body text.</p>
+<button id="text-add" class="btn btn-primary" type="button" disabled>Add text box</button>
+<p id="text-status" class="pane-hint" role="status" aria-live="polite">Upload a background or start a blank canvas first.</p>
+<details class="tool-section text-style"><summary>Headers · first line</summary>
+    <p class="pane-hint">Shared across every text box. Sizes are in export pixels.</p>
+    <label class="horoscope-field">Font<select id="text-header-font"><option>DM Sans</option><option>Manrope</option><option>Outfit</option><option>Noto Sans Tamil</option><option>Cormorant Garamond</option><option>Arial</option><option>Georgia</option><option>Times New Roman</option><option>Verdana</option><option>Courier New</option></select></label>
+    <div class="text-control-grid"><label class="horoscope-field">Size · px<input id="text-header-size" type="number" min="8" max="240" value="48" required></label>
+    <label class="horoscope-field">Weight<select id="text-header-weight"><option value="400">Regular</option><option value="600">Semibold</option><option value="700" selected>Bold</option></select></label></div>
+    <label class="horoscope-field">Color<input id="text-header-color" type="color" value="#ffffff"></label></details><details class="tool-section text-style"><summary>Body text</summary>
+    <p class="pane-hint">Shared across every text box. Sizes are in export pixels.</p>
+    <label class="horoscope-field">Font<select id="text-body-font"><option>DM Sans</option><option>Manrope</option><option>Outfit</option><option>Noto Sans Tamil</option><option>Cormorant Garamond</option><option>Arial</option><option>Georgia</option><option>Times New Roman</option><option>Verdana</option><option>Courier New</option></select></label>
+    <div class="text-control-grid"><label class="horoscope-field">Size · px<input id="text-body-size" type="number" min="8" max="240" value="32" required></label>
+    <label class="horoscope-field">Weight<select id="text-body-weight"><option value="400" selected>Regular</option><option value="600">Semibold</option><option value="700">Bold</option></select></label></div>
+    <label class="horoscope-field">Color<input id="text-body-color" type="color" value="#ffffff"></label></details><label class="horoscope-field">Text boxes<select id="text-selection" aria-label="Select text box"><option value="">No text boxes yet</option></select></label>
+<div id="text-editor" hidden><label class="horoscope-field">Box text<textarea id="text-content" rows="6" placeholder="Header on the first line&#10;Paste or type body text below" aria-describedby="text-paste-hint"></textarea></label>
+<p id="text-paste-hint" class="pane-hint">The first formatted paste supplies shared fonts when available. Plain text keeps your selected fonts.</p>
+<details id="text-position" class="tool-section"><summary>Position and width</summary><div class="text-control-grid"><label class="horoscope-field">Left · px<input id="text-x" type="number" step="1"></label><label class="horoscope-field">Top · px<input id="text-y" type="number" step="1"></label><label class="horoscope-field">Width · px<input id="text-width" type="number" min="48" step="1"></label></div></details>
+<button id="text-delete" class="btn" type="button">Delete text box</button></div>
+<p class="pane-hint">Drag a box to move it. Drag a corner to change its width; text wraps and the height grows automatically.</p></section>
+        </aside>
+        <aside id="pane-created" class="pane pane-created is-collapsed" aria-label="Saved designs" tabindex="-1" hidden>
           <div id="pane-created-body" class="pane-created-body">
-            <div class="saved-heading"><h2 class="pane-created-heading">Saved designs</h2><button id="btn-close-saved" class="btn" type="button" aria-label="Close saved designs">×</button></div>
+            <div class="saved-heading"><h2 class="pane-created-heading">Saved designs</h2><button id="btn-close-saved" class="btn" type="button" aria-label="Close saved designs">Close</button></div>
             <p class="pane-hint">Saved in this browser only. Up to 12 designs, subject to available storage. New saves never remove older designs. Download a PNG to keep a file.</p>
             <p id="created-usage" class="pane-hint">0 of 12 saved designs</p>
             <p id="created-status" class="pane-hint" role="status" aria-live="polite" aria-atomic="true" hidden></p>
@@ -298,15 +316,17 @@
         </aside>
       </div>
     </div>
-    <script src="js/text-boxes.js?v=recoverable-editing-1"></script>
+    <nav class="workspace-mode" aria-label="Workspace view"><button id="btn-mode-edit" class="btn" type="button" aria-pressed="true">Edit</button><button id="btn-mode-preview" class="btn" type="button" aria-pressed="false">Preview</button></nav>
+    <script src="js/text-boxes.js?v=matte-workspace-1"></script>
     <script src="js/viewport.js?v=preview-zoom-1"></script>
-    <script src="js/document-session.js?v=recoverable-editing-1"></script>
-    <script src="js/template-state.js?v=recoverable-editing-1"></script>
-    <script src="js/layers.js?v=recoverable-editing-1"></script>
-    <script src="js/composer.js?v=recoverable-editing-1"></script>
+    <script src="js/document-session.js?v=matte-workspace-1"></script>
+    <script src="js/template-state.js?v=matte-workspace-1"></script>
+    <script src="js/layers.js?v=matte-workspace-1"></script>
+    <script src="js/workspace.js?v=brand-library-1"></script>
+    <script src="js/composer.js?v=brand-library-1"></script>
     <script src="js/horoscope-template.js?v=aura-cover-1"></script>
     <script src="js/lumen-template.js?v=lumen-centered-body-1"></script>
-    <script src="js/lumen.js?v=recoverable-editing-1"></script>
-    <script src="js/horoscope.js?v=recoverable-editing-1"></script>
+    <script src="js/lumen.js?v=matte-workspace-1"></script>
+    <script src="js/horoscope.js?v=matte-workspace-1"></script>
   </body>
 </html>

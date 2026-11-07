@@ -154,10 +154,13 @@ async function startServer() {
     assert.equal(stored.composition.overlays[1].hidden, true);
     assert.equal(stored.composition.overlays[1].locked, true);
     assert.equal(stored.composition.assetLabels['expenses-icon'], 'App icon');
+    await page.locator('#btn-close-saved').click();
     await more('#btn-reset');
     if (await page.locator('.more-actions').evaluate(node => node.open)) await page.locator('.more-actions > summary').click();
-    await page.locator('#assets-created > .asset-chip').last().click();
+    await page.locator('#btn-created-toggle').click();
+    await page.locator('#assets-created .asset-chip').last().click();
     await page.waitForFunction(() => document.querySelectorAll('.layer-row').length === 2);
+    await page.locator('#btn-close-saved').click();
     await page.locator('#tab-layers').click();
     assert.deepEqual(await names(), ['Layer title', 'App icon']);
     const textRow = page.locator('.layer-row').filter({ has: page.locator('.layer-name', { hasText: 'Layer title' }) });
@@ -195,6 +198,7 @@ async function startServer() {
     if (await page.locator('#pane-created').isVisible()) await page.locator('#btn-close-saved').click();
     await page.screenshot({ path: path.join(output, 'layers-1440.png') });
     await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator('#btn-mode-edit').click();
     await page.locator('#tab-layers').scrollIntoViewIfNeeded();
     await page.locator('.layer-select').first().focus();
     await page.keyboard.press('Enter');

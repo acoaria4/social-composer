@@ -50,6 +50,7 @@
   const CUSTOM_COLOR_ID = "expenses-custom-color";
   const TINT_SOURCE_ID = "expenses-mark";
   const DEFAULT_TINT_HEX = "#d9b793";
+  const REMOVE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg>';
 
   const els = {
     canvas: document.getElementById("stage-canvas"),
@@ -134,6 +135,7 @@
   let textTools;
   let viewport;
   let layerTools;
+  let workspaceUI;
   let history;
   let historyReady = false;
   let historyApplying = false;
@@ -146,11 +148,13 @@
   let hasFormDraft = false;
   let recoveryTimer;
   let recoveryRevision = 0;
+  let sessionFeedbackVersion = 0;
   const imageIds = new WeakMap();
   const rasterCopies = new WeakMap();
   let imageSequence = 0;
   let lumenFormat = "1080x1920";
   const lumenActive = () => document.querySelector('[data-brand="lumen"]').getAttribute("aria-pressed") === "true";
+  const auraActive = () => document.querySelector('[data-brand="aura"]').getAttribute("aria-pressed") === "true";
   let idSeq = 1;
   let customSeq = 1;
   let createdSeq = 1;
@@ -325,6 +329,7 @@
   function scheduleRecovery() {
     if (!recoveryReady || recoveryCandidate) return;
     const version = ++recoveryRevision;
+    const feedbackVersion = sessionFeedbackVersion;
     clearTimeout(recoveryTimer);
     document.getElementById("session-status").textContent = "Saving recovery draft…";
     const snapshot = captureDocument(), forms = window.ComposerTemplateState.captureForms();
@@ -333,9 +338,9 @@
         const project = portableProject(snapshot, forms);
         if (version !== recoveryRevision) return;
         await window.ComposerSession.writeRecovery(project);
-        if (version === recoveryRevision) document.getElementById("session-status").textContent = "Recovery draft saved in this browser.";
+        if (version === recoveryRevision && feedbackVersion === sessionFeedbackVersion) document.getElementById("session-status").textContent = "Recovery draft saved in this browser.";
       } catch {
-        if (version === recoveryRevision) document.getElementById("session-status").textContent = "Recovery is unavailable. Export a project file to keep an editable backup.";
+        if (version === recoveryRevision && feedbackVersion === sessionFeedbackVersion) document.getElementById("session-status").textContent = "Recovery is unavailable. Export a project file to keep an editable backup.";
       }
     }, 350);
   }
@@ -352,6 +357,7 @@
   }
 
   async function exportProject() {
+    ++sessionFeedbackVersion;
     const status = document.getElementById("session-status");
     status.textContent = "Preparing project file…";
     try {
@@ -369,6 +375,7 @@
   }
 
   async function importProject(file) {
+    ++sessionFeedbackVersion;
     const ticket = beginDocumentOperation();
     const status = document.getElementById("session-status");
     status.textContent = "Opening project…";
@@ -377,11 +384,17 @@
       const project = window.ComposerSession.validateProject(JSON.parse(await file.text()));
       if (!currentDocumentOperation(ticket)) return;
       const restored = await restoreProject(project, file.name, ticket);
-      if (currentDocumentOperation(ticket)) status.textContent = restored
-        ? "Project opened. Its layers and template inputs are editable."
-        : "The project could not be opened. Your current canvas was kept.";
+      if (currentDocumentOperation(ticket)) {
+        ++sessionFeedbackVersion;
+        status.textContent = restored
+          ? "Project opened. Its layers and template inputs are editable."
+          : "The project could not be opened. Your current canvas was kept.";
+      }
     } catch (error) {
-      if (currentDocumentOperation(ticket)) status.textContent = `Project not opened: ${error.message || "invalid file"}`;
+      if (currentDocumentOperation(ticket)) {
+        ++sessionFeedbackVersion;
+        status.textContent = `Project not opened: ${error.message || "invalid file"}`;
+      }
     }
   }
 
@@ -608,6 +621,9 @@
 
   function updateChrome() {
     const hasBg = Boolean(state.bgImage);
+    const details = document.getElementById("document-details");
+    const dimensions = hasBg ? `${state.width} × ${state.height}` : "Choose a template";
+    if (details.textContent !== dimensions) details.textContent = dimensions;
     els.empty.hidden = hasBg;
     const lumenPost = hasBg && state.templateBrand === "lumen";
     const auraLayout = hasBg && Boolean(state.postDate) && !lumenActive();
@@ -615,12 +631,21 @@
     const lumenLayout = lumenPost || (lumenActive() && (!hasBg || Boolean(state.postDate)));
     els.preset.querySelector('option[value="native"]').disabled = lumenLayout || auraLayout;
     const formatGuidance = document.getElementById("lumen-format-guidance");
-    formatGuidance.hidden = !(lumenLayout || auraLayout);
+    const auraDraft = auraActive() && !state.postDate;
+    formatGuidance.hidden = !(lumenLayout || auraLayout || auraDraft);
     formatGuidance.textContent = auraLayout
       ? "AURA covers and readings use Story / Reel · 9:16 · 1080×1920. Start a blank canvas or upload a background to use other sizes."
+      : auraDraft ? `AURA covers and readings start at Story / Reel · 9:16 · 1080×1920.${hasBg ? " Create one to apply that size; the current canvas is kept until then." : ""}`
       : "Choose Canvas size above, then select Create Lumen post to apply the layout.";
     textTools?.sync();
     layerTools?.sync();
+    const selected = selectedOverlay();
+    workspaceUI?.sync({
+      hasCanvas: hasBg,
+      inspect: !historyApplying,
+      selected: selected ? { ...selected, assetLabel: state.assetLabels.get(selected.assetId) } : null,
+      title: documentTitle(),
+    });
     document.getElementById("btn-restore-template").disabled = !state.templateSource;
     const textOverflow = state.overlays.filter(o => o.type === "text" && !o.hidden).map(o => window.ComposerText.overflow(o, state.width, state.height)).find(Boolean);
     const textOutside = Boolean(textOverflow);
@@ -658,10 +683,18 @@
     state.selectedId = null;
     state.width = 0;
     state.height = 0;
+    if (auraActive()) { state.presetKey = "1080x1920"; els.preset.value = state.presetKey; }
     if (els.bgInput) els.bgInput.value = "";
     fitCanvasElement();
     draw();
     return true;
+  }
+
+  function documentTitle() {
+    if (!state.bgImage) return "Untitled canvas";
+    if (state.postDate) return `AURA · ${state.auraPostType === "cover" ? "Daily cover" : "Daily readings"} · ${state.postDate}`;
+    if (state.templateBrand === "lumen") return "Lumen · Fact post";
+    return `Canvas · ${state.width} × ${state.height}`;
   }
 
   function loadImageFromFile(file) {
@@ -1152,7 +1185,7 @@
     const slug = preset ? preset.slug : "native";
     const entry = {
       id: `created-${Date.now()}-${createdSeq++}`,
-      label: `${slug} ${state.width}×${state.height}`,
+      label: `${documentTitle()} · ${slug}`,
       thumbDataUrl,
       width: state.width,
       height: state.height,
@@ -1228,6 +1261,7 @@
     const pic = state.createdPics.find(p => p.id === id);
     if (!pic) return;
     const nextPics = state.createdPics.filter(p => p.id !== id);
+    const restoreFocus = els.createdGrid.contains(document.activeElement);
     if (!saveCreatedPics(nextPics)) {
       reportCreatedStatus("Remove failed: browser storage is unavailable. The saved design was kept. Retry when storage is available.");
       return;
@@ -1239,6 +1273,7 @@
       updateDocumentStatus();
     }
     renderCreatedPane();
+    if (restoreFocus) (els.createdGrid.querySelector(".asset-chip") || document.getElementById("btn-close-saved")).focus();
     reportCreatedStatus(`Removed “${pic.label}” from this browser.`, "success");
   }
 
@@ -1366,6 +1401,7 @@
       els.meta.textContent = fontWarning
         ? `Restored “${pic.label}” with fallback fonts because a font could not load.`
         : `Restored “${pic.label}”`;
+      els.meta.textContent += ` · ${state.overlays.filter(layer => layer.type !== "text").length} marks · ${state.overlays.filter(layer => layer.type === "text").length} text boxes`;
       return true;
     } catch (err) {
       if (currentDocumentOperation(ticket)) els.meta.textContent = err.message || "Could not restore composition";
@@ -1377,6 +1413,8 @@
     if (!els.createdGrid) return;
     els.createdGrid.replaceChildren();
     for (const pic of [...state.createdPics].reverse()) {
+      const row = document.createElement("div");
+      row.className = "saved-asset-row";
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "asset-chip";
@@ -1393,18 +1431,18 @@
       remove.className = "asset-chip-remove";
       remove.title = "Remove from library";
       remove.setAttribute("aria-label", `Remove ${pic.label}`);
-      remove.textContent = "×";
+      remove.innerHTML = REMOVE_ICON;
       remove.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
         removeCreatedPic(pic.id);
       });
-      btn.appendChild(remove);
+      row.append(btn, remove);
 
       btn.addEventListener("click", () => {
         restoreComposition(pic);
       });
-      els.createdGrid.appendChild(btn);
+      els.createdGrid.appendChild(row);
     }
     if (els.createdEmpty) {
       els.createdEmpty.hidden = state.createdPics.length > 0;
@@ -1442,19 +1480,23 @@
     `;
     btn.querySelector(".asset-label").textContent = asset.label;
 
+    let container = btn;
     if (removable) {
+      container = document.createElement("div");
+      container.className = "asset-item";
       const remove = document.createElement("button");
       remove.type = "button";
       remove.className = "asset-chip-remove";
       remove.title = `Remove ${asset.label}`;
       remove.setAttribute("aria-label", `Remove ${asset.label}`);
-      remove.textContent = "×";
+      remove.innerHTML = REMOVE_ICON;
       remove.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
         removeCustomAsset(asset.id);
+        (els.customGrid.querySelector(".asset-chip") || document.getElementById("btn-upload-asset")).focus();
       });
-      btn.appendChild(remove);
+      container.append(btn, remove);
     }
 
     btn.addEventListener("dragstart", (e) => {
@@ -1487,7 +1529,7 @@
       addOverlay(asset.id);
     });
 
-    return btn;
+    return container;
   }
 
   function tintPreviewSrc() {
@@ -1964,23 +2006,24 @@
       if (parent.tagName === "DETAILS") parent.open = true;
     }
   }
-  document.querySelectorAll(".editor-pane input, .editor-pane textarea").forEach(input => {
+  document.querySelectorAll(".editor-pane input, .editor-pane textarea, .inspector-pane input, .inspector-pane textarea").forEach(input => {
     input.addEventListener("invalid", () => revealTool(input));
   });
   // —— Events ——
   document.getElementById("horoscope-font-size").addEventListener("invalid", () => {
     document.getElementById("horoscope-typography").open = true;
   });
-  const editorTabs = [...document.querySelectorAll('[role="tab"]')];
   function selectEditorTab(tab) {
-    editorTabs.forEach(item => {
+    [...tab.closest('[role="tablist"]').querySelectorAll('[role="tab"]')].forEach(item => {
       const selected = item === tab;
       item.setAttribute("aria-selected", String(selected));
       item.tabIndex = selected ? 0 : -1;
       document.getElementById(item.getAttribute("aria-controls")).hidden = !selected;
     });
   }
-  editorTabs.forEach((tab, index) => {
+  document.querySelectorAll('[role="tablist"]').forEach(tablist => {
+    const editorTabs = [...tablist.querySelectorAll('[role="tab"]')];
+    editorTabs.forEach((tab, index) => {
     tab.addEventListener("click", () => selectEditorTab(tab));
     tab.addEventListener("keydown", event => {
       let next;
@@ -1993,6 +2036,7 @@
       selectEditorTab(editorTabs[next]);
       editorTabs[next].focus();
     });
+    });
   });
   document.querySelectorAll("[data-upload-background]").forEach(button => {
     button.addEventListener("click", () => els.bgInput.click());
@@ -2002,10 +2046,6 @@
     els.stage.focus();
   });
   document.getElementById("btn-upload-asset").addEventListener("click", () => els.customInput.click());
-  document.getElementById("btn-view-preview").addEventListener("click", () => {
-    els.stage.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "center" });
-    els.stage.focus({ preventScroll: true });
-  });
   document.getElementById("btn-close-saved").addEventListener("click", () => {
     state.createdPaneOpen = false;
     saveCreatedPaneOpen();
@@ -2025,7 +2065,10 @@
         panel.hidden = panel.dataset.brandPanel !== button.dataset.brand;
 
       });
-      els.preset.value = lumenActive() || state.templateBrand === "lumen" ? lumenFormat : state.presetKey;
+      if (button.dataset.brand === "aura" && !state.bgImage) state.presetKey = "1080x1920";
+      els.preset.value = button.dataset.brand === "aura" ? state.presetKey
+        : lumenActive() || state.templateBrand === "lumen" ? lumenFormat : state.presetKey;
+      workspaceUI?.setBrand(button.dataset.brand);
       updateChrome();
   }
   document.querySelectorAll("[data-brand]").forEach(button => {
@@ -2138,6 +2181,7 @@
       state.createdPaneOpen = !state.createdPaneOpen;
       saveCreatedPaneOpen();
       syncCreatedPane();
+      if (state.createdPaneOpen) document.getElementById("btn-close-saved").focus();
     });
   }
 
@@ -2229,6 +2273,18 @@
   els.stage.addEventListener("pointercancel", endInteraction);
 
   window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && state.createdPaneOpen) {
+      e.preventDefault();
+      document.getElementById("btn-close-saved").click();
+      return;
+    }
+    const moreActions = document.querySelector(".more-actions");
+    if (e.key === "Escape" && moreActions.open) {
+      e.preventDefault();
+      moreActions.open = false;
+      moreActions.querySelector("summary").focus();
+      return;
+    }
     const typing = e.target?.closest("input,textarea,select,[contenteditable='true']");
     if (!typing && (e.ctrlKey || e.metaKey) && !e.altKey) {
       const key = e.key.toLowerCase();
@@ -2278,6 +2334,7 @@
     beginDocumentOperation();
     const brand = state.templateSource.kind === "lumen-fact" ? "lumen" : "aura";
     window.ComposerTemplateState.restoreSource(state.templateSource);
+    workspaceUI?.setView('edit', { focus: false });
     selectBrand(document.querySelector(`[data-brand="${brand}"]`));
     selectEditorTab(document.getElementById("tab-create"));
     const tool = document.querySelector(`#panel-create [data-brand-panel="${brand}"]`);
@@ -2385,6 +2442,10 @@
 
   textTools = window.ComposerText.init(state, { changed: draw, nextId, remove: deleteSelected });
   layerTools = window.ComposerLayers.init(state, { changed: draw, nextId, selectTab: () => selectEditorTab(document.getElementById("tab-layers")) });
+  workspaceUI = window.ComposerWorkspace.init({ selectTab: selectEditorTab, selectBrand: brand => {
+    beginDocumentOperation();
+    selectBrand(document.querySelector(`[data-brand="${brand}"]`));
+  } });
   textTools.loadFonts();
 
   // —— Boot ——
