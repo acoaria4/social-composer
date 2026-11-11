@@ -64,7 +64,7 @@ Run `npm test -- --suite test-editor.cjs` to check keyboard navigation, drafts, 
 
 ## Publishing
 
-This public repository deploys independently through GitHub Pages from `main` at the repository root. `.nojekyll` enables plain static serving. Push changes here to update only the Composer. The original marketing website repository remains separate. The homepage link intentionally points to `https://theglitchlabs.com/`.
+In the repository’s **Settings → Pages**, set **Source** to **GitHub Actions**. The [Pages workflow](.github/workflows/pages.yml) publishes the tracked static files whenever changes are pushed to `main`. You can also run **Deploy Composer to GitHub Pages** manually from `main` in the **Actions** tab. This repository deploys independently from the marketing website. The homepage link intentionally points to `https://theglitchlabs.com/`.
 
 The legacy Composer at the marketing website is retained as a frozen copy during migration; it does not receive new features. Browser-saved work is origin-specific: it is shared only when both URLs have the same origin. Keep the legacy page available to download old work if hosting changes origin. AURA API CORS must allow the deployed origin. Manual mode works without the API.
 
