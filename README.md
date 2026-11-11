@@ -6,7 +6,7 @@ Serve this folder with any static HTTP server, for example `python3 -m http.serv
 
 For development, use Node 24+, run `npm ci`, then `npm start`. This starts a loopback-only server at `http://127.0.0.1:8089/` and keeps repository internals private.
 
-Run `npm test` for syntax checks and the complete serial test suite. The launcher uses local Chrome when available, or Playwright's pinned Chromium after `npx playwright install chromium`. For another engine, run `npx playwright install firefox webkit`, set `COMPOSER_BROWSER` to `firefox` or `webkit`, and run `npm test`. Focus a check with `npm test -- --suite test-performance.cjs`. CI runs the Chromium, Firefox, and WebKit matrix sequentially.
+Run `npm test` for syntax checks and the complete serial test suite. The launcher uses local Chrome when available, or Playwright's pinned Chromium after `npx playwright install chromium`. For another engine, run `npx playwright install firefox webkit`, set `COMPOSER_BROWSER` to `firefox` or `webkit`, and run `npm test`. Focus a check with `npm test -- --suite test-performance.cjs`. CI uses the runner's installed Chrome for pushes to `main` that change files beyond Markdown and for pull requests targeting `main`. To test Firefox or WebKit on GitHub, choose the browser under **Actions → Composer checks → Run workflow**.
 
 After `npm ci` and browser setup, individual `node scripts/test-*.cjs` and artwork-generation commands below also work directly: their shared launcher starts and stops a loopback server automatically. A pre-running server, globally installed Playwright, and `NODE_PATH` are unnecessary. Set `COMPOSER_URL` only when you want to target an already-served copy.
 

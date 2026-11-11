@@ -2,28 +2,33 @@ name: Composer checks
 
 on:
   push:
-    branches: [main, '0.*', 'codex/**']
+    branches: [main]
+    paths-ignore: ['**/*.md']
   pull_request:
+    branches: [main]
   workflow_dispatch:
+    inputs:
+      browser:
+        description: Browser to check
+        type: choice
+        default: chromium
+        options: [chromium, firefox, webkit]
 
 permissions:
   contents: read
 
 concurrency:
-  group: composer-checks-${{ github.ref }}
+  group: composer-checks-${{ github.ref }}-${{ inputs.browser || 'chromium' }}
   cancel-in-progress: true
 
 jobs:
   browser-checks:
+    if: github.event_name != 'workflow_dispatch' || inputs.browser == 'chromium'
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      max-parallel: 1
-      matrix:
-        browser: [chromium, firefox, webkit]
+    timeout-minutes: 8
     env:
-      COMPOSER_BROWSER: ${{ matrix.browser }}
+      COMPOSER_BROWSER: chromium
+      COMPOSER_CHANNEL: chrome
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -33,12 +38,39 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - run: google-chrome --version
       - run: npm test
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: always()
+        if: failure()
         with:
-          name: composer-${{ matrix.browser }}-evidence
-          path: exports/
+          name: composer-chromium-logs
+          path: exports/checks/chromium/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  compatibility-checks:
+    if: inputs.browser == 'firefox' || inputs.browser == 'webkit'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    container:
+      # Keep the image version aligned with Playwright in package-lock.json.
+      image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
+    env:
+      COMPOSER_BROWSER: ${{ inputs.browser }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: composer-${{ inputs.browser }}-logs
+          path: exports/checks/${{ inputs.browser }}/
           retention-days: 7
           if-no-files-found: ignore

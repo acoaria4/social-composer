@@ -21,7 +21,7 @@ Startup resource bodies fell by about **93%**. This is an uncompressed local res
 - Undo and redo prune the active registry too. Restoring a snapshot without a placed tint layer rebuilds its palette preview, so the next insertion uses the restored color.
 - Custom-library additions and removals commit to browser storage before updating visible data. Count, encoded-size, and write failures preserve the previous library and show persistent feedback.
 - Image encoding, document snapshots, image loading, and rendering schedules have separate modules. Private encoding canvases are released after use without disposing shared artwork.
-- CI selects Node 24, and Playwright is pinned through the lockfile. One serial test command and a shared loopback server replace duplicated setup. GitHub Actions is configured for Chromium, Firefox, and WebKit with one browser job at a time.
+- CI selects Node 24 and uses the Playwright version pinned in the lockfile. The automatic job runs the complete serial suite in the runner's installed Chrome. Firefox and WebKit are available as manual checks using a Playwright image with the browsers and system dependencies installed.
 
 ## Verification and evidence
 

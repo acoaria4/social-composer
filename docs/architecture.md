@@ -38,7 +38,7 @@ Recovery uses the captured history snapshot instead of serializing the mutable d
 
 The server exposes the app and public assets only; `.git`, private files, test sources, traversal, and symlink escapes are blocked. Each suite runs in a separate process with a timeout, and the runner cleans up only that process tree on cancellation.
 
-Set `COMPOSER_BROWSER` to `chromium`, `firefox`, or `webkit` after installing that Playwright browser. Local Chromium uses installed Chrome when available; CI uses the pinned browser package. Windows Chromium and Firefox checks select software graphics. Native CDP touch injection runs in Chromium; the remaining viewport checks run on all three engines. The CI matrix runs one engine job at a time and retains evidence for seven days.
+Set `COMPOSER_BROWSER` to `chromium`, `firefox`, or `webkit` after installing that Playwright browser. Local Chromium uses installed Chrome when available. Windows Chromium and Firefox checks select software graphics. Native CDP touch injection runs in Chromium. The remaining viewport checks run on all three engines. Automatic CI uses the Chrome installed on the Ubuntu 24.04 runner. Manual Firefox and WebKit runs use a Playwright container pinned to the version in `package-lock.json`. Each CI run checks one browser and retains logs and results for seven days if it fails.
 
 If a restricted Windows automation host reports a Firefox graphics or launch permission error, repeat the same command from a normal development terminal and preserve the original log. Record environment launch failures separately from application assertion failures. Test graphics settings do not change the deployed app.
 
