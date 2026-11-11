@@ -46,7 +46,7 @@
     }
     if(line)lines.push(line);return lines;
   }
-  function drawReadingLine(context, line, x, baseline, width, justify, allowWideWordSpacing) {
+  function drawReadingLine(context, line, x, baseline, width, justify, maxAddedSpace) {
     if (justify) {
       const words = line.split(' ');
       if (words.length > 1) {
@@ -54,9 +54,9 @@
         const wordWidth = widths.reduce((sum, value) => sum + value, 0);
         const gap = (width - wordWidth) / (words.length - 1);
         const normalSpace = context.measureText(' ').width;
-        const canJustify = allowWideWordSpacing ? gap > 0 : gap > normalSpace && gap <= normalSpace * 2;
+        const maxGap = normalSpace + (maxAddedSpace ?? normalSpace);
         // Draw each word intact so the font can shape its letters together.
-        if (canJustify) {
+        if (gap > normalSpace && gap <= maxGap) {
           words.forEach((word, index) => {
             context.fillText(word, x, baseline);
             x += widths[index] + gap;
@@ -74,6 +74,8 @@
     if(!['justify','left'].includes(readingAlignment))throw new Error('Choose Justified or Left aligned reading text.');
     const ta=data.language==='ta',family=ta?'Noto Sans Tamil':'DM Sans';
     const bodyFont=`${readingFontWeight} ${readingFontSize}px "${family}"`;
+    // Allow up to one em of extra word spacing in Tamil's narrow reading cards.
+    const maxAddedSpace = ta ? readingFontSize : undefined;
     const [background,art]=await Promise.all([
       loadImage(`background-${colors[4]||'none'}.png`),loadImage('ivory-emblems.png'),
       document.fonts.load(bodyFont,ta?'தமிழ்':'Reading'),
@@ -107,7 +109,7 @@
       }
       lines.forEach((line, index) => {
         const justify = readingAlignment === 'justify' && index < lines.length - 1;
-        drawReadingLine(c, line, cardX + 22, baseline + index * lineHeight, readingWidth, justify, ta);
+        drawReadingLine(c, line, cardX + 22, baseline + index * lineHeight, readingWidth, justify, maxAddedSpace);
       });
     });
     return new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('Could not render the horoscope.')),'image/png'));

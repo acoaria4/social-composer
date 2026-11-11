@@ -100,8 +100,9 @@ const reviewDir=path.resolve(__dirname,'../exports/daily-horoscope');
    return {minimumContrast:Math.min(...contrasts)};
  });assert.ok(typographyChecks.minimumContrast>=4.5);
  const overflow=await page.evaluate(async()=>{try{const t=window.AuraHoroscopeTemplate;await t.render({date:'2026-09-21',ordered:t.signs.map(name=>({name,text:'Long summary '.repeat(80)})),disclaimer:'Context'},t.neutral);return false}catch(e){return /No text was cut/.test(e.message)}});assert.equal(overflow,true);
- const tamilReading='முக்கிய முடிவை நிதானமாக எடுங்கள்.';
- const alignmentChecks=await page.evaluate(async(tamilReading)=>{
+ const tamilReading='ஓய்வு மனதிற்குப் புத்துணர்வு தரும்.';
+ const wideTamilReading='புதிய இடத்தைப் பார்வையிடும் வாய்ப்பு கிடைக்கும். அங்கு பெறும் அனுபவம் உங்கள் சிந்தனையை விரிவுபடுத்தும்.';
+ const alignmentChecks=await page.evaluate(async({tamilReading,wideTamilReading})=>{
    const template=window.AuraHoroscopeTemplate;
    const width=306, date='2026-09-23';
    const original=CanvasRenderingContext2D.prototype.fillText;
@@ -143,8 +144,10 @@ const reviewDir=path.resolve(__dirname,'../exports/daily-horoscope');
    const wideGap='Take care mmmmmmmmm';
    const tamilJustified=await renderLines('ta',tamilReading);
    const tamilLeft=await renderLines('ta',tamilReading,{readingAlignment:'left'});
-   return {results,fallback:await renderLines('en',wideGap),fallbackLeft:await renderLines('en',wideGap,{readingAlignment:'left'}),tamilJustified,tamilLeft,tamilSpace:measure.measureText(' ').width};
- },tamilReading);
+   const tamilFallback=await renderLines('ta',wideTamilReading,{readingFontSize:18});
+   const tamilFallbackLeft=await renderLines('ta',wideTamilReading,{readingFontSize:18,readingAlignment:'left'});
+   return {results,fallback:await renderLines('en',wideGap),fallbackLeft:await renderLines('en',wideGap,{readingAlignment:'left'}),tamilJustified,tamilLeft,tamilSpace:measure.measureText(' ').width,tamilFallback,tamilFallbackLeft};
+ },{tamilReading,wideTamilReading});
  for(const {language,line,justified,left} of alignmentChecks.results){
    assert.deepEqual(justified.map(item=>item.text),[line,line],`${language}: justification preserves whole words and line breaks`);
    assert.deepEqual(left.map(item=>item.text),[line,line]);
@@ -155,6 +158,10 @@ const reviewDir=path.resolve(__dirname,'../exports/daily-horoscope');
  }
  assert.deepEqual(alignmentChecks.fallback.map(line=>line.text),['Take care','mmmmmmmmm']);
  assert.deepEqual(alignmentChecks.fallback,alignmentChecks.fallbackLeft,'A line requiring an excessive word gap stays left aligned');
+ const {tamilFallback,tamilFallbackLeft}=alignmentChecks;
+ assert.ok(tamilFallbackLeft.length>1&&tamilFallbackLeft[0].text.includes(' '),'Tamil fixture starts with a multiword line');
+ assert.ok(508-tamilFallbackLeft[0].right>100,'Tamil fixture has a short non-final line with a wide gap to fill');
+ assert.deepEqual(tamilFallback[0],tamilFallbackLeft[0],'A Tamil line requiring an excessive word gap keeps natural spacing');
  const {tamilJustified,tamilLeft,tamilSpace}=alignmentChecks;
  assert.deepEqual(tamilJustified.map(line=>line.text),tamilLeft.map(line=>line.text),'Tamil justification preserves the wrapped words');
  assert.ok(tamilJustified[0].right-tamilLeft[0].right>tamilSpace,'Tamil justifies a natural line beyond the old word-spacing limit');
