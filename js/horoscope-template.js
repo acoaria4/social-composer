@@ -106,7 +106,7 @@
         throw new Error(`${name}'s reading does not fit at ${readingFontSize} px. Reduce the shared reading text size or shorten this reading. No text was cut and the canvas is unchanged.`);
       }
       lines.forEach((line, index) => {
-        const justify = readingAlignment === 'justify' && (ta || index < lines.length - 1);
+        const justify = readingAlignment === 'justify' && index < lines.length - 1;
         drawReadingLine(c, line, cardX + 22, baseline + index * lineHeight, readingWidth, justify, ta);
       });
     });

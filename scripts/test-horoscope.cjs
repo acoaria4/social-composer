@@ -151,8 +151,7 @@ const reviewDir=path.resolve(__dirname,'../exports/daily-horoscope');
    assert.ok([...justified,...left].every(item=>Math.abs(item.left-202)<.1),`${language}: all lines start at the card's reading margin`);
    assert.ok(Math.abs(justified[0].right-508)<.5,`${language}: the first justified line reaches the right margin`);
    assert.ok(justified[0].right-left[0].right>3,`${language}: Left keeps natural spacing`);
-   if(language==='ta') assert.ok(Math.abs(justified[1].right-508)<.5,'Tamil also justifies the final multiword line');
-   else assert.deepEqual(justified[1],left[1],'English keeps natural spacing on the final line');
+   assert.deepEqual(justified[1],left[1],`${language}: the final line keeps natural spacing`);
  }
  assert.deepEqual(alignmentChecks.fallback.map(line=>line.text),['Take care','mmmmmmmmm']);
  assert.deepEqual(alignmentChecks.fallback,alignmentChecks.fallbackLeft,'A line requiring an excessive word gap stays left aligned');
@@ -160,7 +159,7 @@ const reviewDir=path.resolve(__dirname,'../exports/daily-horoscope');
  assert.deepEqual(tamilJustified.map(line=>line.text),tamilLeft.map(line=>line.text),'Tamil justification preserves the wrapped words');
  assert.ok(tamilJustified[0].right-tamilLeft[0].right>tamilSpace,'Tamil justifies a natural line beyond the old word-spacing limit');
  tamilJustified.forEach((line,index)=>{
-   if(!line.text.includes(' ')) assert.deepEqual(line,tamilLeft[index],'Single-word lines retain natural alignment');
+   if(index===tamilJustified.length-1||!line.text.includes(' ')) assert.deepEqual(line,tamilLeft[index],'Single-word and final lines retain natural alignment');
    else assert.ok(Math.abs(line.left-202)<.1&&Math.abs(line.right-508)<.5,'Tamil multiword lines reach both margins');
  });
  await page.setViewportSize({width:390,height:844});await fields.first().scrollIntoViewIfNeeded();await page.screenshot({path:path.join(reviewDir,'mobile.png')});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);
