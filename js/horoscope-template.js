@@ -5,11 +5,11 @@
   const tamil=['மேஷம்','ரிஷபம்','மிதுனம்','கடகம்','சிம்மம்','கன்னி','துலாம்','விருச்சிகம்','தனுசு','மகரம்','கும்பம்','மீனம்'];
   // Label, atmosphere, reading ink, accessible name accent, background key.
   const palettes=[
-    ['Sunday · Warm gold','#efb777','#253026','#805b2d','sunday'],
+    ['Sunday · Peach ivory','#eed4bf','#253026','#805b2d','sunday'],
     ['Monday · Moon pearl','#afc7df','#253026','#49627a','monday'],
-    ['Tuesday · Terracotta','#da9b88','#253026','#8b5142','tuesday'],
-    ['Wednesday · Sage','#b3c393','#253026','#4d6845','wednesday'],
-    ['Thursday · Saffron','#e5c36a','#253026','#7b601e','thursday'],
+    ['Tuesday · Brick red','#cb8074','#253026','#8b5142','tuesday'],
+    ['Wednesday · Celadon','#cddcc5','#253026','#4d6845','wednesday'],
+    ['Thursday · Buttercream','#ede3b6','#253026','#7b601e','thursday'],
     ['Friday · Rose','#e8a7ba','#253026','#875268','friday'],
     ['Saturday · Lavender','#b8a6d2','#253026','#69557f','saturday'],
   ];
@@ -22,7 +22,9 @@
     if(!images.has(name)) images.set(name,new Promise((resolve,reject)=>{
       const image=new Image();image.onload=()=>resolve(image);
       image.onerror=()=>{images.delete(name);reject(new Error('Could not load the horoscope artwork. Please reload.'));};
-      image.src=new URL(name,assetBase).href;
+      const url = new URL(name, assetBase);
+      if (name.startsWith('background-') && name !== 'background-none.png') url.searchParams.set('v', 'weekday-palettes-2');
+      image.src = url.href;
     }));
     return images.get(name);
   }
@@ -44,9 +46,31 @@
     }
     if(line)lines.push(line);return lines;
   }
-  async function render(data,colors,{blank=false,readingFontSize=30,readingFontWeight=600}={}){
+  function drawReadingLine(context, line, x, baseline, width, justify) {
+    if (justify) {
+      const words = line.split(' ');
+      if (words.length > 1) {
+        const widths = words.map(word => context.measureText(word).width);
+        const wordWidth = widths.reduce((sum, value) => sum + value, 0);
+        const gap = (width - wordWidth) / (words.length - 1);
+        const normalSpace = context.measureText(' ').width;
+        // Keep whole words shaped by the font and avoid large holes in narrow cards.
+        if (gap > normalSpace && gap <= normalSpace * 2) {
+          words.forEach((word, index) => {
+            context.fillText(word, x, baseline);
+            x += widths[index] + gap;
+          });
+          return;
+        }
+      }
+    }
+    context.fillText(line, x, baseline);
+  }
+
+  async function render(data,colors,{blank=false,readingFontSize=30,readingFontWeight=600,readingAlignment='justify'}={}){
     if(!Number.isInteger(readingFontSize)||readingFontSize<18||readingFontSize>36)throw new Error('Choose a whole reading text size from 18 to 36 px.');
     if(![400,600,700].includes(readingFontWeight))throw new Error('Choose Regular, Semibold, or Bold reading text.');
+    if(!['justify','left'].includes(readingAlignment))throw new Error('Choose Justified or Left aligned reading text.');
     const ta=data.language==='ta',family=ta?'Noto Sans Tamil':'DM Sans';
     const bodyFont=`${readingFontWeight} ${readingFontSize}px "${family}"`;
     const [background,art]=await Promise.all([
@@ -74,12 +98,13 @@
       if(blank)return;
       const reading=data.ordered[i];if(!reading||reading.name!==sign||typeof reading.text!=='string'||!reading.text.trim())throw new Error(`Missing or unordered ${sign} reading.`);
       c.fillStyle=colors[2];c.font=bodyFont;
-      const lines=wrap(c,reading.text,306,ta?'ta':'en'),lineHeight=Math.ceil(readingFontSize*1.2);
+      const readingWidth = 306;
+      const lines=wrap(c,reading.text,readingWidth,ta?'ta':'en'),lineHeight=Math.ceil(readingFontSize*1.2);
       const baseline=y+46+readingFontSize;
       if(lines.some((line,n)=>baseline+n*lineHeight+c.measureText(line).actualBoundingBoxDescent>y+182)){
         throw new Error(`${name}'s reading does not fit at ${readingFontSize} px. Reduce the shared reading text size or shorten this reading. No text was cut and the canvas is unchanged.`);
       }
-      lines.forEach((line,n)=>c.fillText(line,cardX+22,baseline+n*lineHeight));
+      lines.forEach((line,n)=>drawReadingLine(c, line, cardX+22, baseline+n*lineHeight, readingWidth, readingAlignment === 'justify' && n < lines.length - 1));
     });
     return new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('Could not render the horoscope.')),'image/png'));
   }

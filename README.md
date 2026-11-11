@@ -102,19 +102,21 @@ The older files under `brands/` are no longer referenced by the composer.
 
 Select **AURA** and choose **Manual entry** (default) or **Fetch from AURA API**. Manual entry provides twelve labelled reading fields; paste one reading per sign, then select **Create horoscope**. All fields are required. Manual mode makes no API requests, and drafts survive source, brand, date, language, and color changes as well as reloads. Generating API results never overwrites manual drafts. Explicitly restoring a newly saved API reading opens its original summaries in Manual entry for editing, without refetching them.
 
+Use **Readings → Clear all readings** to empty all twelve input boxes for a new edition. This also clears the saved reading draft while retaining the date, language, styling, and current canvas.
+
 Choose **தமிழ் · Tamil** (default) or **English**, a reading date, and a background. API mode fetches the selected language directly from AURA. Both modes produce one 1080 × 1920 (9:16) canvas. Save and Download PNG use the normal composer controls.
 
 Generated AURA readings and covers keep their supported Story / Reel size; the canvas-size control is locked while editing them. Restoring an older AURA save also restores its full 9:16 background rather than a cropped preset. Selecting Lumen lets you stage another format for a new Lumen post without resizing the current AURA artwork. Blank canvases and uploaded backgrounds retain the normal size controls.
 
 Selecting AURA with an empty canvas defaults Canvas size to **Story / Reel · 9:16 · 1080×1920**, including new blank canvases. Switching to AURA while artwork is already open preserves that artwork and its displayed size; creating an AURA cover or reading then applies 9:16. Lumen keeps its own staged format.
 
-All eight backgrounds are always available in either language: No tint (ivory), Sunday warm gold, Monday moon pearl, Tuesday terracotta, Wednesday sage, Thursday saffron, Friday rose, and Saturday lavender. Automatic follows the selected date in Asia/Kolkata. These are editorial tints, independent of the readings.
+Both languages offer eight backgrounds. Choose No tint (ivory), Sunday peach ivory, Monday moon pearl, Tuesday brick red, Wednesday celadon, Thursday buttercream, Friday rose, or Saturday lavender. Automatic follows the selected date in Asia/Kolkata.
 
 API: `https://aura-glitchlabs.fly.dev/api/horoscopes/daily?date=YYYY-MM-DD&lang=ta` (or `lang=en`). Summaries are used unchanged. The requested language, date, timezone, all twelve unique signs, and reading context are validated before replacing the canvas. Failed requests never fall back to invented or translated readings. Changing source, language, date, or color cancels stale requests and prevents late results from replacing the canvas. The API disclaimer appears below the controls; the artwork has no footer text.
 
 The shared renderer (`js/horoscope-template.js`) uses the approved centered layout: equal 180 px side margins, two columns of 350 × 196 px cards, and six rows from y=400 to y=1636. Clean local celestial backgrounds match each day; gold emblems, ivory cards, Tamil Rasi names or English transliterations, and localized dates are rendered separately. Name accents are muted bronze, slate blue, clay, forest sage, ochre, dusty rose, or plum, with at least 4.5:1 contrast against the cards. These margins were checked against a simulated Reel view based on the supplied screenshot; Instagram displays and overlays can vary.
 
-**Reading text size** (18–36 px, default 30) and **Reading text weight** (Regular 400, Semibold 600, Bold 700; default Semibold) affect all twelve reading paragraphs together. Select **Create horoscope** to apply. Sign names, title, and date retain their own styling. Controls and manual drafts survive reloads. Newly saved covers and reading posts retain their source inputs; older saved flattened images are unchanged.
+**Typography** controls all twelve readings. Set text size (18–36 px, default 30), weight (Regular, Semibold, or Bold), and alignment (Justified by default or Left aligned). Justification keeps final lines and lines that would need oversized gaps left aligned. Select **Create horoscope** to apply. Controls and manual drafts survive reloads. Saved covers and reading posts retain their source inputs.
 
 Text uses self-hosted Noto Sans Tamil or DM Sans; fonts are loaded at the requested weight before measurement. Tamil wrapping respects grapheme boundaries. There is no per-sign shrinking or automatic rewriting. A reading that exceeds its card produces an error naming the Rasi and suggesting a smaller shared size or shorter reading; the existing canvas is preserved. Blank horoscope templates need no API connection.
 
@@ -123,7 +125,7 @@ The API must allow the site's origin through its CORS configuration. In API mode
 After the development setup above:
 
 - `npm test -- --suite test-horoscope.cjs` checks shared size and weight across all signs, input validation, accessible name contrast, long Tamil readings at 18 px, manual defaults, draft retention, API failures/cancellation, both languages, all backgrounds, blanks, dimensions, PNG export, overflow handling, and mobile width using mocked API responses.
-- `node scripts/render-horoscope.cjs` exports Tamil editorial samples and blanks for all eight backgrounds, with a comparison sheet and phone-sized/simulated Reels previews. Set `HOROSCOPE_LANGUAGE=en` for English. These samples are illustrative layout previews, not live forecasts. Pass `HOROSCOPE_DATA=/path/to/api-response.json` to render a saved actual Tamil or English API edition instead; optional `readingFontSize` and `readingFontWeight` fields set the shared typography for that export.
+- `node scripts/render-horoscope.cjs` exports Tamil editorial samples and blanks for all eight backgrounds, with a comparison sheet and phone-sized/simulated Reels previews. Set `HOROSCOPE_LANGUAGE=en` for English. These samples use illustrative readings. Pass `HOROSCOPE_DATA=/path/to/api-response.json` to render a saved Tamil or English API edition. Optional `readingFontSize`, `readingFontWeight`, and `readingAlignment` fields set the shared typography.
 
 Exports are local review artifacts under `exports/daily-horoscope/` and are not committed.
 

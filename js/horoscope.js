@@ -5,6 +5,7 @@
   const SIGNS = template.signs;
   const source = document.getElementById('horoscope-source');
   const manualPanel = document.getElementById('horoscope-manual');
+  const clearReadingsButton = document.getElementById('horoscope-clear-readings');
   const fields = SIGNS.map((sign, index) => {
     const label = document.createElement('label');
     label.className = 'horoscope-field';
@@ -25,7 +26,12 @@
   const fontSize = document.getElementById('horoscope-font-size');
   const fontRange = document.getElementById('horoscope-font-size-range');
   const fontWeight = document.getElementById('horoscope-font-weight');
-  const typography = () => ({readingFontSize:fontSize.valueAsNumber, readingFontWeight:Number(fontWeight.value)});
+  const alignment = document.getElementById('horoscope-alignment');
+  const typography = () => ({
+    readingFontSize: fontSize.valueAsNumber,
+    readingFontWeight: Number(fontWeight.value),
+    readingAlignment: alignment.value,
+  });
   const theme = document.getElementById('horoscope-theme');
   const button = document.getElementById('horoscope-create');
   const coverButton = document.getElementById('horoscope-cover');
@@ -120,6 +126,7 @@
     cancelWork();
     const manual = source.value === 'manual';
     manualPanel.hidden = !manual;
+    clearReadingsButton.disabled = fields.every(({input}) => input.value === '');
     apiStatus.hidden = manual;
     context.hidden = manual;
     context.textContent = '';
@@ -134,12 +141,23 @@
     paletteLabel.style.setProperty('--day-accent', colors[3]);
     status.textContent = 'Create a cover or horoscope to apply your settings. Any existing canvas stays unchanged until ready.';
   }
+  clearReadingsButton.addEventListener('click', () => {
+    fields.forEach(({input}) => {
+      input.value = '';
+      input.removeAttribute('aria-invalid');
+    });
+    update();
+    window.ComposerTemplateState.changed();
+    status.textContent = 'All 12 reading boxes cleared. Your current canvas is unchanged.';
+    fields[0].input.focus();
+  });
   source.addEventListener('change', () => {update();checkApi();});
   dateInput.addEventListener('change', () => {update();checkApi();});
   theme.addEventListener('change', update);
   fontRange.addEventListener('input', () => {fontSize.value=fontRange.value;update();});
   fontSize.addEventListener('input', () => {if(fontSize.checkValidity())fontRange.value=fontSize.value;update();});
   fontWeight.addEventListener('change', update);
+  alignment.addEventListener('change', update);
   language.addEventListener('change', () => {update();checkApi();});
   document.addEventListener('composer:document-operation', event => {
     if (event.detail.owner !== 'aura') update();
@@ -154,6 +172,7 @@
       theme: theme.value,
       fontSize: fontSize.value,
       fontWeight: fontWeight.value,
+      alignment: alignment.value,
       readings: fields.map(({ input }) => input.value),
     };
   }
@@ -166,6 +185,7 @@
     choose(language, value.language);
     choose(theme, value.theme);
     choose(fontWeight, String(value.fontWeight ?? ''));
+    alignment.value = value.alignment === 'left' ? 'left' : 'justify';
     if (typeof value.date === 'string' && (value.date === '' || /^\d{4}-\d{2}-\d{2}$/.test(value.date))) dateInput.value = value.date;
     if (typeof value.fontSize === 'string' || typeof value.fontSize === 'number') fontSize.value = String(value.fontSize).slice(0, 12);
     if (fontSize.checkValidity()) fontRange.value = fontSize.value;

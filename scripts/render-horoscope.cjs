@@ -13,7 +13,12 @@ const sampleSets=require('./horoscope-samples.json');
  for(const key of keys)for(const blank of [true,false]){
   const data=await page.evaluate(async({key,blank,samples,edition,language})=>{
    const t=window.AuraHoroscopeTemplate,date=edition?.date||`2026-09-${key==='none'?23:20+t.keys.indexOf(key)}`;
-   const blob=await t.render({...edition,date,language,ordered:t.signs.map((name,i)=>({name,text:edition?edition.readings.find(r=>r.sign===name.toLowerCase()).summary:samples[i]}))},t.palette(key,date),{blank,readingFontSize:Number(edition?.readingFontSize||30),readingFontWeight:Number(edition?.readingFontWeight||600)});
+   const blob=await t.render({...edition,date,language,ordered:t.signs.map((name,i)=>({name,text:edition?edition.readings.find(r=>r.sign===name.toLowerCase()).summary:samples[i]}))},t.palette(key,date),{
+    blank,
+    readingFontSize:Number(edition?.readingFontSize||30),
+    readingFontWeight:Number(edition?.readingFontWeight||600),
+    readingAlignment:edition?.readingAlignment ?? 'justify',
+   });
    return await new Promise(resolve=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result.split(',')[1]);reader.readAsDataURL(blob)});
   },{key,blank,samples,edition,language});
   fs.writeFileSync(path.join(dir,`${language}-${key}-${blank?'blank':edition?'reading':'sample'}.png`),Buffer.from(data,'base64'));

@@ -85,7 +85,7 @@
             <p hidden id="horoscope-api-status" class="api-status" data-state="checking" role="status" aria-live="polite">Checking API…</p>
             <label class="horoscope-field">Reading date <input id="horoscope-date" type="date" min="1900-01-01" max="2100-12-31" required></label>
             <label class="horoscope-field">Language <select id="horoscope-language"><option value="ta">தமிழ் · Tamil</option><option value="en">English</option></select></label>
-            <label class="horoscope-field">Post color <select id="horoscope-theme"><option value="daily">Automatic · reading day</option><option value="none">No tint · AURA ivory</option><option value="sunday">Sunday · Warm gold</option><option value="monday">Monday · Moon pearl</option><option value="tuesday">Tuesday · Terracotta</option><option value="wednesday">Wednesday · Sage</option><option value="thursday">Thursday · Saffron</option><option value="friday">Friday · Rose</option><option value="saturday">Saturday · Lavender</option></select></label>
+            <label class="horoscope-field">Post color <select id="horoscope-theme"><option value="daily">Automatic · reading day</option><option value="none">No tint · AURA ivory</option><option value="sunday">Sunday · Peach ivory</option><option value="monday">Monday · Moon pearl</option><option value="tuesday">Tuesday · Brick red</option><option value="wednesday">Wednesday · Celadon</option><option value="thursday">Thursday · Buttercream</option><option value="friday">Friday · Rose</option><option value="saturday">Saturday · Lavender</option></select></label>
             <p class="pane-hint">Golden Rasi emblems, readings in your chosen language, and eight backgrounds. Every tint is available for any date.</p>
             </details>
             <details id="horoscope-typography" class="form-section typography-section"><summary>Typography</summary>
@@ -97,9 +97,10 @@
               </div>
             </div>
             <label class="horoscope-field">Reading text weight <select id="horoscope-font-weight" aria-describedby="horoscope-type-hint"><option value="400">Regular</option><option value="600" selected>Semibold</option><option value="700">Bold</option></select></label>
-            <p id="horoscope-type-hint" class="pane-hint">Applies to all 12 readings. Smaller text fits more. Select Create horoscope to apply; sign names keep their own style.</p>
+            <label class="horoscope-field">Reading alignment <select id="horoscope-alignment" aria-describedby="horoscope-type-hint"><option value="justify" selected>Justified</option><option value="left">Left aligned</option></select></label>
+            <p id="horoscope-type-hint" class="pane-hint">Applies to all 12 readings. Justified text keeps the last line left aligned. Select Create horoscope to apply.</p>
             </details>
-            <details id="horoscope-manual" class="tool-section"><summary>Readings</summary><p class="pane-hint">Paste a reading for each sign. Your text stays here while you adjust the post or switch sources.</p><div id="horoscope-readings"></div></details>
+            <details id="horoscope-manual" class="tool-section"><summary>Readings</summary><p class="pane-hint">Paste a reading for each sign. Your text stays here while you adjust the post or switch sources.</p><button id="horoscope-clear-readings" type="button" class="btn btn-ghost" disabled>Clear all readings</button><div id="horoscope-readings"></div></details>
             <p hidden id="horoscope-context" class="pane-hint" lang="ta"></p>
             <p id="horoscope-palette" class="pane-hint"></p>
             <button id="horoscope-create" type="button" class="btn btn-primary">Create horoscope</button>
@@ -329,9 +330,9 @@
     <script src="js/asset-store.js?v=performance-1"></script>
     <script src="js/render-scheduler.js?v=performance-1"></script>
     <script src="js/composer.js?v=aura-default-1"></script>
-    <script src="js/horoscope-template.js?v=aura-cover-1"></script>
+    <script src="js/horoscope-template.js?v=weekday-palettes-2"></script>
     <script src="js/lumen-template.js?v=lumen-centered-body-1"></script>
     <script src="js/lumen.js?v=matte-workspace-1"></script>
-    <script src="js/horoscope.js?v=matte-workspace-1"></script>
+    <script src="js/horoscope.js?v=reading-alignment-1"></script>
   </body>
 </html>

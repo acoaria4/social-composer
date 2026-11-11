@@ -12,10 +12,12 @@ const reviewDir=path.resolve(__dirname,'../exports/daily-horoscope');
  const longSample='நண்பர்கள் அல்லது தொழில் வட்டாரத்திலிருந்து உதவி கிடைக்கலாம். நீண்டகால திட்டம் ஒன்றை நடைமுறைப்படுத்தும் எண்ணம் வலுப்படும்.';
  const sample='நிதானமாகச் செயல்படுங்கள்.';
  const size=page.locator('#horoscope-font-size'),range=page.locator('#horoscope-font-size-range'),weight=page.locator('#horoscope-font-weight');
+ const alignment=page.locator('#horoscope-alignment');
  const source=page.locator('#horoscope-source'), fields=page.locator('#horoscope-readings textarea');
  const canvas=()=>page.locator('#stage-canvas').evaluate(c=>c.toDataURL());
  const create=async()=>{await page.locator('#horoscope-create').click();await page.waitForFunction(()=>document.querySelector('#horoscope-status').textContent.startsWith('Ready:'));};
  assert.equal(await size.inputValue(),'30');assert.equal(await weight.inputValue(),'600');
+ assert.equal(await alignment.inputValue(),'justify');
  assert.equal(await source.inputValue(),'manual');assert.equal(await page.locator('#horoscope-language').inputValue(),'ta');assert.equal(await fields.count(),12);assert.equal(apiCalls,0);
  assert.equal(await page.locator('#horoscope-api-status').isVisible(),false);
  const initial=await canvas();await page.locator('#horoscope-create').click();assert.equal(await fields.first().evaluate(e=>e===document.activeElement),true);assert.equal(await canvas(),initial);
@@ -98,8 +100,69 @@ const reviewDir=path.resolve(__dirname,'../exports/daily-horoscope');
    return {minimumContrast:Math.min(...contrasts)};
  });assert.ok(typographyChecks.minimumContrast>=4.5);
  const overflow=await page.evaluate(async()=>{try{const t=window.AuraHoroscopeTemplate;await t.render({date:'2026-09-21',ordered:t.signs.map(name=>({name,text:'Long summary '.repeat(80)})),disclaimer:'Context'},t.neutral);return false}catch(e){return /No text was cut/.test(e.message)}});assert.equal(overflow,true);
+ const alignmentChecks=await page.evaluate(async()=>{
+   const template=window.AuraHoroscopeTemplate;
+   const width=306, date='2026-09-23';
+   const original=CanvasRenderingContext2D.prototype.fillText;
+   const measure=document.createElement('canvas').getContext('2d');
+   const renderLines=async(language,reading,options)=>{
+     const lines=new Map();
+     CanvasRenderingContext2D.prototype.fillText=function(text,x,y){
+       if(x>=202&&x<508&&y>440&&y<596){
+         const line=lines.get(y)||{left:x,right:x,parts:[]};
+         line.left=Math.min(line.left,x);line.right=Math.max(line.right,x+this.measureText(text).width);
+         line.parts.push(text);lines.set(y,line);
+       }
+       return original.apply(this,arguments);
+     };
+     try{
+       const ordered=template.signs.map((name,index)=>({name,text:index===0?reading:language==='ta'?'நலம்.':'Be well.'}));
+       await template.render({date,language,ordered},template.neutral,options);
+       return [...lines.values()].map(({left,right,parts})=>({left,right,text:parts.join(' ').trim().replace(/\s+/g,' ')}));
+     }finally{CanvasRenderingContext2D.prototype.fillText=original;}
+   };
+   const examples={
+     en:['calm','mind','step','day','focus','plan','space','steady'],
+     ta:['நலம்','வளம்','அமைதி','உறுதி','முயற்சி','கவனம்','இன்று','அன்பு','நிதானம்','முன்னேற்றம்'],
+   };
+   const results=[];
+   for(const [language,words] of Object.entries(examples)){
+     measure.font=`600 30px "${language==='ta'?'Noto Sans Tamil':'DM Sans'}"`;
+     await document.fonts.load(measure.font,words.join(' '));
+     const space=measure.measureText(' ').width;
+     // Choose an eligible fixture using the actual browser font metrics, with room on both sides of the spacing limit.
+     const line=words.flatMap(word=>Array.from({length:6},(_,i)=>Array(i+2).fill(word).join(' '))).find(text=>{
+       const parts=text.split(' '), slack=width-measure.measureText(text).width;
+       return slack>=4&&slack<(parts.length-1)*space*.8&&measure.measureText(`${text} ${parts[0]}`).width>width;
+     });
+     if(!line)throw new Error(`No suitable ${language} alignment fixture`);
+     const reading=`${line} ${line}`;
+     results.push({language,line,reading,justified:await renderLines(language,reading),left:await renderLines(language,reading,{readingAlignment:'left'})});
+   }
+   const wideGap='Take care mmmmmmmmm';
+   return {results,fallback:await renderLines('en',wideGap),fallbackLeft:await renderLines('en',wideGap,{readingAlignment:'left'})};
+ });
+ for(const {language,line,justified,left} of alignmentChecks.results){
+   assert.deepEqual(justified.map(item=>item.text),[line,line],`${language}: justification preserves whole words and line breaks`);
+   assert.deepEqual(left.map(item=>item.text),[line,line]);
+   assert.ok([...justified,...left].every(item=>Math.abs(item.left-202)<.1),`${language}: all lines start at the card's reading margin`);
+   assert.ok(Math.abs(justified[0].right-508)<.5,`${language}: the first justified line reaches the right margin`);
+   assert.ok(justified[0].right-left[0].right>3,`${language}: Left keeps natural spacing`);
+   assert.deepEqual(justified[1],left[1],`${language}: the final line keeps natural spacing`);
+ }
+ assert.deepEqual(alignmentChecks.fallback.map(line=>line.text),['Take care','mmmmmmmmm']);
+ assert.deepEqual(alignmentChecks.fallback,alignmentChecks.fallbackLeft,'A line requiring an excessive word gap stays left aligned');
  await page.setViewportSize({width:390,height:844});await fields.first().scrollIntoViewIfNeeded();await page.screenshot({path:path.join(reviewDir,'mobile.png')});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);
  await page.setViewportSize({width:1280,height:900});await page.locator('#horoscope-source').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(reviewDir,'desktop.png')});
+ await page.locator('#horoscope-language').selectOption('en');
+ await fields.first().fill(alignmentChecks.results.find(result=>result.language==='en').reading);
+ for(let i=1;i<12;i++)await fields.nth(i).fill('Be well.');
+ await alignment.selectOption('left');await create();const leftArtwork=await canvas();
+ await alignment.selectOption('justify');await create();assert.notEqual(await canvas(),leftArtwork,'The alignment control changes the generated artwork');
+ await alignment.selectOption('left');await page.reload();
+ assert.equal(await alignment.inputValue(),'left','The AURA alignment draft survives reload');
+ assert.equal(await page.evaluate(()=>ComposerTemplateState.captureForms().aura.alignment),'left');
+ assert.deepEqual(errors,[]);
  console.log('Minimum name contrast:',typographyChecks.minimumContrast.toFixed(2));
- console.log('PASS: shared size/weight, invalid values, long Tamil at 18px, name contrast, manual default, Tamil sample, missing/overflow validation, draft retention, API failures/cancellation, API-fed render, all nine selections, date-independent tints, blank templates, PNG export, overflow guard, mobile width.');
+ console.log('PASS: shared size/weight/alignment, justified Tamil and English with safe spacing, alignment draft reload, invalid values, long Tamil at 18px, name contrast, manual default, Tamil sample, missing/overflow validation, draft retention, API failures/cancellation, API-fed render, all nine selections, date-independent tints, blank templates, PNG export, overflow guard, mobile width.');
 }finally{await browser.close()}})();
