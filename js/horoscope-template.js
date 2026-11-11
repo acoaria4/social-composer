@@ -46,7 +46,7 @@
     }
     if(line)lines.push(line);return lines;
   }
-  function drawReadingLine(context, line, x, baseline, width, justify) {
+  function drawReadingLine(context, line, x, baseline, width, justify, allowWideWordSpacing) {
     if (justify) {
       const words = line.split(' ');
       if (words.length > 1) {
@@ -54,8 +54,9 @@
         const wordWidth = widths.reduce((sum, value) => sum + value, 0);
         const gap = (width - wordWidth) / (words.length - 1);
         const normalSpace = context.measureText(' ').width;
-        // Keep whole words shaped by the font and avoid large holes in narrow cards.
-        if (gap > normalSpace && gap <= normalSpace * 2) {
+        const canJustify = allowWideWordSpacing ? gap > 0 : gap > normalSpace && gap <= normalSpace * 2;
+        // Draw each word intact so the font can shape its letters together.
+        if (canJustify) {
           words.forEach((word, index) => {
             context.fillText(word, x, baseline);
             x += widths[index] + gap;
@@ -104,7 +105,10 @@
       if(lines.some((line,n)=>baseline+n*lineHeight+c.measureText(line).actualBoundingBoxDescent>y+182)){
         throw new Error(`${name}'s reading does not fit at ${readingFontSize} px. Reduce the shared reading text size or shorten this reading. No text was cut and the canvas is unchanged.`);
       }
-      lines.forEach((line,n)=>drawReadingLine(c, line, cardX+22, baseline+n*lineHeight, readingWidth, readingAlignment === 'justify' && n < lines.length - 1));
+      lines.forEach((line, index) => {
+        const justify = readingAlignment === 'justify' && (ta || index < lines.length - 1);
+        drawReadingLine(c, line, cardX + 22, baseline + index * lineHeight, readingWidth, justify, ta);
+      });
     });
     return new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('Could not render the horoscope.')),'image/png'));
   }

@@ -100,7 +100,8 @@ const reviewDir=path.resolve(__dirname,'../exports/daily-horoscope');
    return {minimumContrast:Math.min(...contrasts)};
  });assert.ok(typographyChecks.minimumContrast>=4.5);
  const overflow=await page.evaluate(async()=>{try{const t=window.AuraHoroscopeTemplate;await t.render({date:'2026-09-21',ordered:t.signs.map(name=>({name,text:'Long summary '.repeat(80)})),disclaimer:'Context'},t.neutral);return false}catch(e){return /No text was cut/.test(e.message)}});assert.equal(overflow,true);
- const alignmentChecks=await page.evaluate(async()=>{
+ const tamilReading='முக்கிய முடிவை நிதானமாக எடுங்கள்.';
+ const alignmentChecks=await page.evaluate(async(tamilReading)=>{
    const template=window.AuraHoroscopeTemplate;
    const width=306, date='2026-09-23';
    const original=CanvasRenderingContext2D.prototype.fillText;
@@ -140,29 +141,41 @@ const reviewDir=path.resolve(__dirname,'../exports/daily-horoscope');
      results.push({language,line,reading,justified:await renderLines(language,reading),left:await renderLines(language,reading,{readingAlignment:'left'})});
    }
    const wideGap='Take care mmmmmmmmm';
-   return {results,fallback:await renderLines('en',wideGap),fallbackLeft:await renderLines('en',wideGap,{readingAlignment:'left'})};
- });
+   const tamilJustified=await renderLines('ta',tamilReading);
+   const tamilLeft=await renderLines('ta',tamilReading,{readingAlignment:'left'});
+   return {results,fallback:await renderLines('en',wideGap),fallbackLeft:await renderLines('en',wideGap,{readingAlignment:'left'}),tamilJustified,tamilLeft,tamilSpace:measure.measureText(' ').width};
+ },tamilReading);
  for(const {language,line,justified,left} of alignmentChecks.results){
    assert.deepEqual(justified.map(item=>item.text),[line,line],`${language}: justification preserves whole words and line breaks`);
    assert.deepEqual(left.map(item=>item.text),[line,line]);
    assert.ok([...justified,...left].every(item=>Math.abs(item.left-202)<.1),`${language}: all lines start at the card's reading margin`);
    assert.ok(Math.abs(justified[0].right-508)<.5,`${language}: the first justified line reaches the right margin`);
    assert.ok(justified[0].right-left[0].right>3,`${language}: Left keeps natural spacing`);
-   assert.deepEqual(justified[1],left[1],`${language}: the final line keeps natural spacing`);
+   if(language==='ta') assert.ok(Math.abs(justified[1].right-508)<.5,'Tamil also justifies the final multiword line');
+   else assert.deepEqual(justified[1],left[1],'English keeps natural spacing on the final line');
  }
  assert.deepEqual(alignmentChecks.fallback.map(line=>line.text),['Take care','mmmmmmmmm']);
  assert.deepEqual(alignmentChecks.fallback,alignmentChecks.fallbackLeft,'A line requiring an excessive word gap stays left aligned');
+ const {tamilJustified,tamilLeft,tamilSpace}=alignmentChecks;
+ assert.deepEqual(tamilJustified.map(line=>line.text),tamilLeft.map(line=>line.text),'Tamil justification preserves the wrapped words');
+ assert.ok(tamilJustified[0].right-tamilLeft[0].right>tamilSpace,'Tamil justifies a natural line beyond the old word-spacing limit');
+ tamilJustified.forEach((line,index)=>{
+   if(!line.text.includes(' ')) assert.deepEqual(line,tamilLeft[index],'Single-word lines retain natural alignment');
+   else assert.ok(Math.abs(line.left-202)<.1&&Math.abs(line.right-508)<.5,'Tamil multiword lines reach both margins');
+ });
  await page.setViewportSize({width:390,height:844});await fields.first().scrollIntoViewIfNeeded();await page.screenshot({path:path.join(reviewDir,'mobile.png')});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);
  await page.setViewportSize({width:1280,height:900});await page.locator('#horoscope-source').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(reviewDir,'desktop.png')});
- await page.locator('#horoscope-language').selectOption('en');
- await fields.first().fill(alignmentChecks.results.find(result=>result.language==='en').reading);
- for(let i=1;i<12;i++)await fields.nth(i).fill('Be well.');
- await alignment.selectOption('left');await create();const leftArtwork=await canvas();
- await alignment.selectOption('justify');await create();assert.notEqual(await canvas(),leftArtwork,'The alignment control changes the generated artwork');
+ for(const [language,reading,shortReading] of [['ta',tamilReading,sample],['en',alignmentChecks.results.find(result=>result.language==='en').reading,'Be well.']]){
+   await page.locator('#horoscope-language').selectOption(language);
+   await fields.first().fill(reading);
+   for(let i=1;i<12;i++)await fields.nth(i).fill(shortReading);
+   await alignment.selectOption('left');await create();const leftArtwork=await canvas();
+   await alignment.selectOption('justify');await create();assert.notEqual(await canvas(),leftArtwork,`${language}: the alignment control changes the generated artwork`);
+ }
  await alignment.selectOption('left');await page.reload();
  assert.equal(await alignment.inputValue(),'left','The AURA alignment draft survives reload');
  assert.equal(await page.evaluate(()=>ComposerTemplateState.captureForms().aura.alignment),'left');
  assert.deepEqual(errors,[]);
  console.log('Minimum name contrast:',typographyChecks.minimumContrast.toFixed(2));
- console.log('PASS: shared size/weight/alignment, justified Tamil and English with safe spacing, alignment draft reload, invalid values, long Tamil at 18px, name contrast, manual default, Tamil sample, missing/overflow validation, draft retention, API failures/cancellation, API-fed render, all nine selections, date-independent tints, blank templates, PNG export, overflow guard, mobile width.');
+ console.log('PASS: shared size/weight/alignment, Tamil word spacing and English justification, alignment draft reload, invalid values, long Tamil at 18px, name contrast, manual default, Tamil sample, missing/overflow validation, draft retention, API failures/cancellation, API-fed render, all nine selections, date-independent tints, blank templates, PNG export, overflow guard, mobile width.');
 }finally{await browser.close()}})();
